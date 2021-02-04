@@ -1,0 +1,328 @@
+import copy
+import json
+import os
+import sys
+
+import numpy as np
+import psycopg2
+from hilbertcurve.hilbertcurve import HilbertCurve
+from scipy.spatial import cKDTree
+
+grid_x = range(0, 20)
+grid_y = range(0, 20)
+grid_xy = []
+for x in grid_x:
+    for y in grid_y:
+        grid_xy.append([x, y])
+
+hilbert_curve = HilbertCurve(10, 2)
+hilbert_index = hilbert_curve.distances_from_points(grid_xy)
+
+DEFAULT_DB = 'cityjson'
+DEFAULT_SCHEMA = 'addcolumns'
+
+PATHDATASETS = '../datasets/'
+
+param_dic = {
+    "host": "localhost",
+    "database": "cityjson",
+    "user": "postgres",
+    "password": "1234"
+}
+
+
+def connect(params_dic):
+    """ Connect to the PostgreSQL database server """
+    try:
+        # connect to the PostgreSQL server
+        print('Connecting to the PostgreSQL database...')
+        conn = psycopg2.connect(**params_dic)
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+        sys.exit(1)
+    print("Connection successful")
+    return conn
+
+
+def from_index_to_vertex(boundaries, verticesList):
+    # needed for every geometry
+    for i, temp_list in enumerate(boundaries):
+        if not isinstance(temp_list, list):
+            index = temp_list
+            # always append the vertex to the verticesList
+            x, y, z = verticesList[index]
+            # the index is the length of the verticesList minus one.
+            # In this way, the vertex does not have to be found
+            boundaries[i] = [x, y, z]
+        else:
+            boundaries[i] = from_index_to_vertex(temp_list, verticesList)
+    return boundaries
+
+
+def convert_surface_to_polygon(surface, referenceSystem):
+    linestring_index = 0
+    linestring_list = []
+    for linestring in surface:
+        vertex_list = []
+        first_vertex = "{0} {1} {2}".format(linestring[0][0], linestring[0][1], linestring[0][2])
+        for vertex in linestring:
+            vertex = "{0} {1} {2}".format(vertex[0], vertex[1], vertex[2])
+            vertex_list.append(vertex)
+        vertex_list.append(first_vertex)
+        linestring_list.append(tuple(vertex_list))
+        linestring_index = linestring_index + 1
+
+    if len(linestring_list) == 1:
+        polygon = '(' + str(tuple(vertex_list)) + ')'
+    else:
+        polygon = str(tuple(linestring_list))
+    polygon = polygon.replace("'", "")
+    polygon = polygon.replace('"', "")
+    if referenceSystem is None:
+        polygon = 'POLYGONZ {}'.format(polygon)
+    else:
+        polygon = 'SRID={}; POLYGONZ {}'.format(referenceSystem, polygon)
+    return polygon
+
+
+def process_geometry(j, cityobject):
+    # -- update vertex indices
+    oldnewids = {}
+    newvertices = []
+
+    for geom in cityobject['geometry']:
+        update_array_indices(geom["boundaries"], oldnewids, j["vertices"], newvertices, -1)
+    return newvertices
+
+
+def update_array_indices(a, dOldNewIDs, oldarray, newarray, slicearray):
+    for i, each in enumerate(a):
+        if isinstance(each, list):
+            update_array_indices(each, dOldNewIDs, oldarray, newarray, slicearray)
+        elif each is not None:
+            if (slicearray == -1) or (slicearray == 0 and i == 0) or (slicearray == 1 and i > 0):
+                if each in dOldNewIDs:
+                    a[i] = dOldNewIDs[each]
+                else:
+                    a[i] = len(newarray)
+                    dOldNewIDs[each] = len(newarray)
+                    newarray.append(oldarray[each])
+
+
+def insert_cityjson(file_name, schema_name):
+    conn = connect(param_dic)
+    cur = conn.cursor()
+
+    # open CityJSON file
+    p = PATHDATASETS + file_name + '.json'
+    if not os.path.isfile(p):
+        print("There is no such file")
+        return None
+    data = json.load(open(p))
+
+    count_cityobjects = len(data['CityObjects'])
+
+    # store metadata table
+    metadata = {'type': data['type'], 'version': data['version']}
+    if 'metadata' in data.keys():
+        for key in data['metadata']:
+            metadata[key] = data['metadata'][key]
+
+    ref_system = None  # If no SRID is specified the unknown spatial reference system (SRID 0) is used.
+    geo_crs = 0
+    data_title = None
+    file_server = 'http://192.168.1.101:5050/' + file_name + '.json'
+
+    if 'metadata' in data.keys():
+        if 'referenceSystem' in data['metadata']:
+            ref_system = int(data['metadata']['referenceSystem'].split("::")[-1])
+            geo_crs = ref_system
+        if 'datasetTitle' in data['metadata']:
+            data_title = data['metadata']['datasetTitle']
+
+    # transform back
+    if 'transform' in data.keys():
+        transform = data['transform']
+        data['vertices'] = (np.array(data['vertices']) * transform["scale"] + transform["translate"]).tolist()
+
+    # prepare tiles
+    pts_xy = np.array(data['vertices']).T[:2]
+    min_xy = pts_xy.min(axis=1)
+    max_xy = pts_xy.max(axis=1)
+    step_x = int((max_xy[0] - min_xy[0]) / 20)
+    step_y = int((max_xy[1] - min_xy[1]) / 20)
+
+    # make sure 20 X 20
+    grid_x = np.arange(int(min_xy[0]), int(min_xy[0]) + 20 * step_x, step_x)
+    grid_y = np.arange(int(min_xy[1]), int(min_xy[1]) + 20 * step_y, step_y)
+    grid_xy = []
+    for x in grid_x:
+        for y in grid_y:
+            grid_xy.append([x, y])
+    print(len(grid_xy))
+    grid_xy = np.array(grid_xy)
+
+    tree = cKDTree(grid_xy, leafsize=20)
+    bbox2d = [min_xy[0], min_xy[1], max_xy[0], max_xy[1]]
+
+    insert_metadata = """
+    SET search_path TO {}, public; 
+    INSERT INTO {}.metadata 
+    (name, version, referenceSystem, bbox, datasetTitle, object,file_path) 
+    VALUES ( %s, %s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s,%s)""" \
+        .format(schema_name, schema_name, bbox2d[0], bbox2d[1], bbox2d[2], bbox2d[3], geo_crs)
+    cur.execute(insert_metadata,
+                (file_name, data['version'], ref_system, data_title, json.dumps(data['metadata']), file_server))
+    conn.commit()
+
+    # store city_object table
+    step_index = range(int(count_cityobjects * 2 / 10), count_cityobjects, int(count_cityobjects / 10))
+    for obj_index, obj_id in enumerate(data['CityObjects']):
+        if obj_index in step_index:
+            finished_rate100 = int(obj_index / count_cityobjects * 10) * 10
+            print('The insertion has be finished ', finished_rate100, '%.')
+        cityobject = data['CityObjects'][obj_id]
+
+        parents = None
+        if 'parents' in cityobject.keys():
+            parents = cityobject['parents']
+        children = None
+        if 'children' in cityobject.keys():
+            children = cityobject['children']
+        attributes = {}
+        if 'attributes' in cityobject.keys():
+            attributes = cityobject['attributes']
+
+        vertices = process_geometry(data, cityobject)
+        if len(vertices) == 0:
+            bbox2d = [0, 0, 0, 0]
+        else:
+            x, y, z = zip(*vertices)
+            bbox2d = [min(x), min(y), max(x), max(y)]
+
+        # todo: or center?
+        _, ix = tree.query([[(min(x)+max(x))/2, (min(y)+max(y))/2]], k=1)
+
+        insert_cityobjects = """
+        INSERT INTO {}.city_object (obj_id, type, bbox, tile_id, parents, children, attributes, vertices, object, metadata_id)
+        VALUES (%s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s,%s, %s, %s, %s, currval('metadata_id_seq'))
+        """.format(schema_name, bbox2d[0], bbox2d[1], bbox2d[2], bbox2d[3], geo_crs)
+        cur.execute(insert_cityobjects,
+                    (obj_id, cityobject['type'], hilbert_index[ix[0]], parents, children, json.dumps(attributes),
+                     json.dumps(vertices),
+                     json.dumps(cityobject)))
+        conn.commit()
+
+        #  geometry
+        for geometry in cityobject['geometry']:
+            geom_type = geometry['type']
+            geom_lod = geometry['lod']
+
+            insert_geometry = """
+            INSERT INTO {}.geometries (lod, type, city_object_id) VALUES (%s, %s, currval('city_object_id_seq'))
+            """.format(schema_name)
+            cur.execute(insert_geometry, (geom_lod, geom_type))
+            conn.commit()
+
+            boundaries = from_index_to_vertex(geometry['boundaries'], vertices)
+            if 'semantics' in geometry.keys():
+                semantics_surfaces = geometry['semantics']['surfaces']
+                if geom_type == 'MultiSurface' or geom_type == 'CompositeSurface':
+                    for surface_index, surface in enumerate(boundaries):
+                        polygon = convert_surface_to_polygon(surface, geo_crs)
+                        surface_type = None
+                        surface_attributes = None
+                        semantics_value = geometry['semantics']['values'][surface_index]
+                        if semantics_value:
+                            # print(semantics_surfaces)
+                            semantics_surface = semantics_surfaces[semantics_value]
+                            surface_type = semantics_surface['type']
+                            surface_attributes = copy.deepcopy(semantics_surface)
+                            del surface_attributes['type']
+                        insert_geometry = """
+                        INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
+                        VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                        cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                        conn.commit()
+
+                elif geom_type == 'Solid':
+                    for shell_index, shell in enumerate(boundaries):
+                        for surface_index, surface in enumerate(shell):
+                            surface_type = None
+                            surface_attributes = None
+                            polygon = convert_surface_to_polygon(surface, geo_crs)
+                            semantics_value = geometry['semantics']['values'][shell_index][surface_index]
+                            if semantics_value:
+                                semantics_surface = semantics_surfaces[semantics_value]
+                                surface_type = semantics_surface['type']
+                                del semantics_surface['type']
+                                surface_attributes = semantics_surface
+                            insert_geometry = """
+                                INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
+                                VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                            cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                            conn.commit()
+
+                elif geom_type == 'MultiSolid' or geom_type == 'CompositeSolid':
+                    for solid_index, solid in enumerate(boundaries):
+                        for shell_index, shell in enumerate(solid):
+                            for surface_index, surface in enumerate(shell):
+                                surface_type = None
+                                surface_attributes = None
+                                polygon = convert_surface_to_polygon(surface, geo_crs)
+                                semantics_value = geometry['semantics']['values'][solid_index][shell_index][
+                                    surface_index]
+                                if semantics_value:
+                                    semantics_surface = semantics_surfaces[semantics_value]
+                                    surface_type = semantics_surface['type']
+                                    del semantics_surface['type']
+                                    surface_attributes = semantics_surface
+                                insert_geometry = """
+                                INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
+                                VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                                cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                                conn.commit()
+                else:
+                    print('unknown geometry type')
+            else:
+                if geom_type == 'MultiSurface' or geom_type == 'CompositeSurface':
+                    for surface_index, surface in enumerate(boundaries):
+                        polygon = convert_surface_to_polygon(surface, geo_crs)
+                        insert_geometry = """
+                        INSERT INTO {}.surfaces (geometry, geometries_id)
+                        VALUES (%s, currval('geometries_id_seq'))""".format(schema_name)
+                        cur.execute(insert_geometry, (polygon,))
+                        conn.commit()
+
+                elif geom_type == 'Solid':
+                    for shell_index, shell in enumerate(boundaries):
+                        for surface_index, surface in enumerate(shell):
+                            polygon = convert_surface_to_polygon(surface, geo_crs)
+                            insert_geometry = """
+                                INSERT INTO {}.surfaces (geometry, geometries_id)
+                                VALUES (%s, currval('geometries_id_seq'))""".format(schema_name)
+                            cur.execute(insert_geometry, (polygon,))
+                            conn.commit()
+
+                elif geom_type == 'MultiSolid' or geom_type == 'CompositeSolid':
+                    for solid_index, solid in enumerate(boundaries):
+                        for shell_index, shell in enumerate(solid):
+                            for surface_index, surface in enumerate(shell):
+                                polygon = convert_surface_to_polygon(surface, geo_crs)
+                                insert_geometry = """
+                                INSERT INTO {}.surfaces (geometry, geometries_id)
+                                VALUES (%s, currval('geometries_id_seq'))""".format(schema_name)
+                                cur.execute(insert_geometry, (polygon,))
+                                conn.commit()
+
+                else:
+                    print('unknown geometry type')
+    print("""The insertion of "{}" in schema "{}" is done""".format(file_name, schema_name))
+
+# insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
+# insert_cityjson('denhaag', DEFAULT_SCHEMA)
+# insert_cityjson('delft', DEFAULT_SCHEMA)
+# insert_cityjson('vienna', DEFAULT_SCHEMA)
+# insert_cityjson('montreal', DEFAULT_SCHEMA)
+insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
+insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)

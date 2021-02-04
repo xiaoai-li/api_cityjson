@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<div class="section bg-gray">
+  <ul class="breadcrumb">
+    <li class="breadcrumb-item">
+      <a href="{{ url_for('root') }}">/ home</a>
+    </li>
+    <li class="breadcrumb-item">
+      <a href="{{ url_for('collections') }}">collections</a>
+    </li>
+  </ul>
+</div>
+
+
+<h2>Collections available:</h2>
+
+
+<table class="table table-striped table-hover">
+  <tr>
+    <th>Name</th>
+    <th>Description</th>
+  </tr>
+  {% for d in datasets %}
+  <tr>
+    <td><a href="{{ url_for('collections') }}{{ d['name'] }}">{{ d['name'] }}</a></td>
+    <td>{{ d['title'] }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+
+{% endblock %}
