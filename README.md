@@ -40,9 +40,9 @@ pip install git+https://github.com/cityjson/cjio.git@develop
 ### question
 - bbox filters for multiple collections or collection?bbox
 - file_path column? (datasets+ processor in a same server)
-- SQLAlchemy is a ORM, psycopg2 is a database driver.?
 - no longer supports THREE.Geometry. Use THREE.BufferGeometry instead.');
 -spacial contanioues 
 - what is a feature??? currently single-part buiklding + building parts 
 multiple building needs their children for at least rederning purposes
 - tile insertion or post process
+- preprocess

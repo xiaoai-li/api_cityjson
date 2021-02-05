@@ -34,7 +34,7 @@ def add_cityobject(cityjson, id, object, vertices):
         update_geom_indices(g["boundaries"], offset)
 
 
-def query_items(file_name=None, schema_name='addcolumns', limit=20, offset=0):
+def query_items(file_name=None, schema_name='addcolumns', limit=10, offset=0):
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()  # Open a cursor to perform database operations
 
@@ -43,17 +43,18 @@ def query_items(file_name=None, schema_name='addcolumns', limit=20, offset=0):
         SET search_path to {}, public;
         (SELECT obj_id, c.object, vertices,version
         FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
-        WHERE name=%s and type IN {}
+        WHERE name=%s
         ORDER BY tile_id
         LIMIT {} OFFSET {})
         UNION
         SELECT obj_id, object, vertices,version
         FROM city_object, (SELECT children_flattened, version
         FROM (city_object AS c JOIN metadata AS m ON c.metadata_id=m.id), unnest(children) AS children_flattened
-        WHERE name=%s AND type IN {}
+        WHERE name=%s
+        ORDER BY tile_id
         LIMIT {} OFFSET {}) AS children
         WHERE obj_id = children_flattened;
-        """.format(schema_name, TOPLEVEL, limit, offset, TOPLEVEL, limit, offset)
+        """.format(schema_name, limit, offset,limit, offset)
     cur.execute(query_cityobjects, [file_name, file_name])
     object_cityobjects = cur.fetchall()
     threaded_postgreSQL_pool.putconn(conn)

@@ -1,5 +1,6 @@
 import json
 import os
+from timeit import default_timer as timer
 
 from cjio import cityjson
 from flask import Flask, render_template, request, Response
@@ -56,6 +57,7 @@ def collection(dataset):
 
 @app.route('/collections/<dataset>/items/', methods=['GET'])  # -- html/json/bbox/limit/offset
 def items(dataset):
+    s=timer()
     # # -- bbox
     # re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
     # if re_bbox is not None:
@@ -68,13 +70,16 @@ def items(dataset):
     #         return JINVALIDFORMAT
     #     cm = cm.get_subset_bbox(bbox=b, exclude=False)
 
-    re_limit = int(request.args.get('limit', default=30))
+    re_limit = int(request.args.get('limit', default=10))
     re_offset = int(request.args.get('offset', default=0))
     cm = query_items(file_name=dataset, limit=re_limit, offset=re_offset)
 
     # -- html/json
     re_f = request.args.get('f', None)
     if re_f == 'html' or re_f is None:
+        e=timer()
+        print('query 10 items from '+ dataset + ': '+ str(e-s))
+
         return render_template("items.html", datasetname=dataset, jcm=cm.j, limit=re_limit, offset=re_offset)
     elif re_f == 'json':
         return json.dumps(cm.j)

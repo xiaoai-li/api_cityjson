@@ -7,16 +7,7 @@ import numpy as np
 import psycopg2
 from hilbertcurve.hilbertcurve import HilbertCurve
 from scipy.spatial import cKDTree
-
-grid_x = range(0, 20)
-grid_y = range(0, 20)
-grid_xy = []
-for x in grid_x:
-    for y in grid_y:
-        grid_xy.append([x, y])
-
-hilbert_curve = HilbertCurve(10, 2)
-hilbert_index = hilbert_curve.distances_from_points(grid_xy)
+from timeit import default_timer as timer
 
 DEFAULT_DB = 'cityjson'
 DEFAULT_SCHEMA = 'addcolumns'
@@ -45,6 +36,7 @@ def connect(params_dic):
 
 
 def from_index_to_vertex(boundaries, verticesList):
+    new_boundries = boundaries[:]
     # needed for every geometry
     for i, temp_list in enumerate(boundaries):
         if not isinstance(temp_list, list):
@@ -53,10 +45,10 @@ def from_index_to_vertex(boundaries, verticesList):
             x, y, z = verticesList[index]
             # the index is the length of the verticesList minus one.
             # In this way, the vertex does not have to be found
-            boundaries[i] = [x, y, z]
+            new_boundries[i] = [x, y, z]
         else:
-            boundaries[i] = from_index_to_vertex(temp_list, verticesList)
-    return boundaries
+            new_boundries[i] = from_index_to_vertex(temp_list, verticesList)
+    return new_boundries
 
 
 def convert_surface_to_polygon(surface, referenceSystem):
@@ -109,6 +101,19 @@ def update_array_indices(a, dOldNewIDs, oldarray, newarray, slicearray):
                     newarray.append(oldarray[each])
 
 
+def create_hilbert(num_x, num_y):
+    grid_x = range(0, num_x)
+    grid_y = range(0, num_y)
+    grid_xy = []
+    for x in grid_x:
+        for y in grid_y:
+            grid_xy.append([x, y])
+
+    hilbert_curve = HilbertCurve(20, 2)
+    hilbert_index = hilbert_curve.distances_from_points(grid_xy)
+    return hilbert_index
+
+
 def insert_cityjson(file_name, schema_name):
     conn = connect(param_dic)
     cur = conn.cursor()
@@ -149,21 +154,29 @@ def insert_cityjson(file_name, schema_name):
     pts_xy = np.array(data['vertices']).T[:2]
     min_xy = pts_xy.min(axis=1)
     max_xy = pts_xy.max(axis=1)
-    step_x = int((max_xy[0] - min_xy[0]) / 20)
-    step_y = int((max_xy[1] - min_xy[1]) / 20)
 
-    # make sure 20 X 20
-    grid_x = np.arange(int(min_xy[0]), int(min_xy[0]) + 20 * step_x, step_x)
-    grid_y = np.arange(int(min_xy[1]), int(min_xy[1]) + 20 * step_y, step_y)
+    # make sure proportional
+    num_cityobjects = len(data['CityObjects'])
+    rate = int(num_cityobjects / 1000)
+    len_x = max_xy[0] - min_xy[0]
+    len_y = max_xy[1] - min_xy[1]
+    step_x = int(len_x / rate)
+    step_y = int(len_y / rate)
+    num_x = int(len_x / step_x)
+    num_y = int(len_y / step_y)
+
+    grid_x = np.arange(int(min_xy[0]), int(min_xy[0]) + rate * step_x, step_x)
+    grid_y = np.arange(int(min_xy[1]), int(min_xy[1]) + rate * step_y, step_y)
     grid_xy = []
     for x in grid_x:
         for y in grid_y:
             grid_xy.append([x, y])
-    print(len(grid_xy))
     grid_xy = np.array(grid_xy)
-
+    print(len(grid_xy))
     tree = cKDTree(grid_xy, leafsize=20)
     bbox2d = [min_xy[0], min_xy[1], max_xy[0], max_xy[1]]
+    hilbert_indices = create_hilbert(num_x, num_y)
+    print('hilbert curve is created')
 
     insert_metadata = """
     SET search_path TO {}, public; 
@@ -182,6 +195,7 @@ def insert_cityjson(file_name, schema_name):
             finished_rate100 = int(obj_index / count_cityobjects * 10) * 10
             print('The insertion has be finished ', finished_rate100, '%.')
         cityobject = data['CityObjects'][obj_id]
+        vertices = process_geometry(data, cityobject)
 
         parents = None
         if 'parents' in cityobject.keys():
@@ -189,26 +203,27 @@ def insert_cityjson(file_name, schema_name):
         children = None
         if 'children' in cityobject.keys():
             children = cityobject['children']
+
         attributes = {}
         if 'attributes' in cityobject.keys():
             attributes = cityobject['attributes']
 
-        vertices = process_geometry(data, cityobject)
         if len(vertices) == 0:
             bbox2d = [0, 0, 0, 0]
+            hilbert_index = -1
         else:
             x, y, z = zip(*vertices)
             bbox2d = [min(x), min(y), max(x), max(y)]
+            _, ix = tree.query([[(min(x) + max(x)) / 2, (min(y) + max(y)) / 2]], k=1)
+            hilbert_index = hilbert_indices[ix[0]]
 
         # todo: or center?
-        _, ix = tree.query([[(min(x)+max(x))/2, (min(y)+max(y))/2]], k=1)
-
         insert_cityobjects = """
         INSERT INTO {}.city_object (obj_id, type, bbox, tile_id, parents, children, attributes, vertices, object, metadata_id)
         VALUES (%s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s,%s, %s, %s, %s, currval('metadata_id_seq'))
         """.format(schema_name, bbox2d[0], bbox2d[1], bbox2d[2], bbox2d[3], geo_crs)
         cur.execute(insert_cityobjects,
-                    (obj_id, cityobject['type'], hilbert_index[ix[0]], parents, children, json.dumps(attributes),
+                    (obj_id, cityobject['type'], hilbert_index, parents, children, json.dumps(attributes),
                      json.dumps(vertices),
                      json.dumps(cityobject)))
         conn.commit()
@@ -246,6 +261,7 @@ def insert_cityjson(file_name, schema_name):
                         conn.commit()
 
                 elif geom_type == 'Solid':
+
                     for shell_index, shell in enumerate(boundaries):
                         for surface_index, surface in enumerate(shell):
                             surface_type = None
@@ -317,12 +333,34 @@ def insert_cityjson(file_name, schema_name):
 
                 else:
                     print('unknown geometry type')
+    # UPDATE TILE_ID of multipart building
+    update_multipart_buildings = """
+        SET search_path TO {};
+        
+        UPDATE city_object SET tile_id = tile_value.value
+        FROM
+        (SELECT parent_id,avg(tile_id) ::numeric::integer as value
+        FROM city_object, (SELECT children_id,obj_id as parent_id
+        FROM (city_object AS c JOIN metadata AS m ON c.metadata_id=m.id), unnest(children) AS children_id
+        WHERE name=%s
+        ORDER BY tile_id) AS children
+        WHERE obj_id = children_id
+        GROUP BY parent_id) AS tile_value
+        WHERE city_object.obj_id = tile_value.parent_id;""".format(schema_name)
+    cur.execute(update_multipart_buildings, [file_name])
+    conn.commit()
+
     print("""The insertion of "{}" in schema "{}" is done""".format(file_name, schema_name))
+
 
 # insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
 # insert_cityjson('denhaag', DEFAULT_SCHEMA)
 # insert_cityjson('delft', DEFAULT_SCHEMA)
 # insert_cityjson('vienna', DEFAULT_SCHEMA)
 # insert_cityjson('montreal', DEFAULT_SCHEMA)
-insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
+# insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
+start=timer()
 insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
+end=timer()
+print(end-start)
+#
