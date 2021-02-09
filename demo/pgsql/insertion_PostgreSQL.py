@@ -174,7 +174,6 @@ def insert_cityjson(file_name, schema_name):
     grid_xy = np.array(grid_xy)
     print(len(grid_xy))
     tree = cKDTree(grid_xy, leafsize=20)
-    bbox2d = [min_xy[0], min_xy[1], max_xy[0], max_xy[1]]
     hilbert_indices = create_hilbert(num_x, num_y)
     print('hilbert curve is created')
 
@@ -183,7 +182,7 @@ def insert_cityjson(file_name, schema_name):
     INSERT INTO {}.metadata 
     (name, version, referenceSystem, bbox, datasetTitle, object,file_path) 
     VALUES ( %s, %s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s,%s)""" \
-        .format(schema_name, schema_name, bbox2d[0], bbox2d[1], bbox2d[2], bbox2d[3], geo_crs)
+        .format(schema_name, schema_name, min_xy[0], min_xy[1], max_xy[0], max_xy[1], geo_crs)
     cur.execute(insert_metadata,
                 (file_name, data['version'], ref_system, data_title, json.dumps(data['metadata']), file_server))
     conn.commit()

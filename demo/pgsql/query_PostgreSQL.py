@@ -1,3 +1,6 @@
+import json
+
+import numpy as np
 from cjio.cityjson import CityJSON
 
 TOPLEVEL = ('Building',
@@ -54,7 +57,7 @@ def query_items(file_name=None, schema_name='addcolumns', limit=10, offset=0):
         ORDER BY tile_id
         LIMIT {} OFFSET {}) AS children
         WHERE obj_id = children_flattened;
-        """.format(schema_name, limit, offset,limit, offset)
+        """.format(schema_name, limit, offset, limit, offset)
     cur.execute(query_cityobjects, [file_name, file_name])
     object_cityobjects = cur.fetchall()
     threaded_postgreSQL_pool.putconn(conn)
@@ -120,6 +123,66 @@ def query_feature(file_name=None, schema_name='addcolumns', feature_id=None):
     return cityjson
 
 
+def query_col_bbox(file_name=None, schema_name='addcolumns'):
+    try:
+        conn = threaded_postgreSQL_pool.getconn()
+        cur = conn.cursor()  # Open a cursor to perform database operations
+
+        query_bbox = """
+                SET search_path to {}, public;
+
+                SELECT st_asgeojson(st_transform(bbox, 4326)),st_asgeojson(bbox), referencesystem
+                FROM metadata
+                WHERE name=%s
+                """.format(schema_name)
+        cur.execute(query_bbox, [file_name])
+        results=cur.fetchall()[0]
+        geo_wgs84 = json.loads(results[0])
+        bbox = geo_wgs84['coordinates'][0]
+        pts_xy = np.array(bbox).T[:2]
+        min_xy = pts_xy.min(axis=1)
+        max_xy = pts_xy.max(axis=1)
+        bbox_wgs84 = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
+        geo_original = json.loads(results[1])
+        bbox = geo_original['coordinates'][0]
+        pts_xy = np.array(bbox).T[:2]
+        min_xy = pts_xy.min(axis=1)
+        max_xy = pts_xy.max(axis=1)
+        bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
+        epsg = results[2]
+
+        return (bbox_wgs84, bbox_original, epsg)
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+        return
+
+
+def query_cols_bbox(schema_name='addcolumns'):
+    try:
+        conn = threaded_postgreSQL_pool.getconn()
+        cur = conn.cursor()  # Open a cursor to perform database operations
+
+        query_bboxes = """
+                SET search_path to {}, public;
+
+                SELECT st_asgeojson(st_transform(bbox, 4326))
+                FROM metadata
+                WHERE referencesystem IS NOT null
+                """.format(schema_name)
+        cur.execute(query_bboxes)
+        bboxes = []
+        for result in cur.fetchall():
+            bbox = json.loads(result[0])['coordinates'][0]
+            pts_xy = np.array(bbox).T[:2]
+            min_xy = pts_xy.min(axis=1)
+            max_xy = pts_xy.max(axis=1)
+            bboxes.append([[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]])
+        return bboxes
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+        return
+
+
 import psycopg2
 from psycopg2 import pool
 
@@ -133,11 +196,10 @@ try:
          database="cityjson")
     if (threaded_postgreSQL_pool):
         print("Connection pool created successfully using ThreadedConnectionPool")
+        query_col_bbox('delft')
 
 
 finally:
-    # closing database connection.
-    # use closeall method to close all the active connection if you want to turn of the application
     if threaded_postgreSQL_pool:
         threaded_postgreSQL_pool.closeall
     print("Threaded PostgreSQL connection pool is closed")

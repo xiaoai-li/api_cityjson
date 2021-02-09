@@ -1,0 +1,89 @@
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+      integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+      crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+        integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+        crossorigin=""></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.4.2/leaflet.draw.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.4.2/leaflet.draw.js"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='3rd/jquery.js') }}"></script>
+
+
+<div id="map" style="width: 900px; height: 400px"></div>
+
+<script>
+var bounds = {{ bounds }};
+
+var map = L.map('map', {
+    center: [30,0],
+    zoom: 2
+});
+console.log({{ type }})
+
+var opt= {{ type }};
+if (opt == 1){
+    map.fitBounds(bounds);
+    var rect = L.rectangle(bounds, {color: 'blue', weight: 3}).on('click', function (e) {
+    console.info(e);
+    }).addTo(map);
+}
+else
+{
+    for (i = 0; i < bounds.length; i++) {
+        var rect = L.rectangle(bounds[i], {color: 'blue', weight: 3}).on('click', function (e) {
+        console.info(e);
+        }).addTo(map);
+    }
+}
+
+
+// Set up the OSM layer
+L.tileLayer(
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18
+  }).addTo(map);
+
+
+// Initialise the FeatureGroup to store editable layers
+var editableLayers = new L.FeatureGroup();
+map.addLayer(editableLayers);
+
+var drawPluginOptions = {
+  position: 'topright',
+  draw: {
+    polyline:false,
+    polygon: false,
+    circle: false, // Turns off this drawing tool
+    rectangle: {
+      shapeOptions: {
+        clickable: false
+      }
+    },
+    marker: false
+  },
+  edit: {
+    featureGroup: editableLayers, //REQUIRED!!
+    remove: true
+  }
+};
+
+// Initialise the draw control and pass it the FeatureGroup of editable layers
+var drawControl = new L.Control.Draw(drawPluginOptions);
+map.addControl(drawControl);
+
+var bbox;
+map.on('draw:created', function(e) {
+    layer = e.layer;
+    editableLayers.addLayer(layer);
+    latlngs=layer.getLatLngs()[0]
+    bbox=[latlngs[0]['lat'].toFixed(5),latlngs[0]['lng'].toFixed(5),latlngs[1]['lat'].toFixed(5),latlngs[1]['lng'].toFixed(5)]
+    console.log(bbox)
+    $("#epsg").val("4326");
+    $("#minY").val(bbox[0]);
+    $("#minX").val(bbox[1]);
+    $("#maxY").val(bbox[2]);
+    $("#maxX").val(bbox[3]);
+
+});
+
+</script>

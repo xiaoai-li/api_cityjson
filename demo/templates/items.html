@@ -73,23 +73,23 @@
 
 <h2>{{ datasetname }}</h2>
 
-    <h3>Metadata
-    </h3>
+<!--    <h3>Metadata-->
+<!--    </h3>-->
 
-    <table class="table table-striped table-hover">
-      <tr>
-        <th>Name</th>
-        <th>Value</th>
-      </tr>
-      {% if 'metadata' in jcm %}
-        {% for key, value in jcm['metadata'].items() %}
-          <tr>
-            <td>{{ key }}</td>
-            <td>{{ value }}</td>
-          </tr>
-        {% endfor %}
-      {% endif %}
-    </table>
+<!--    <table class="table table-striped table-hover">-->
+<!--      <tr>-->
+<!--        <th>Name</th>-->
+<!--        <th>Value</th>-->
+<!--      </tr>-->
+<!--      {% if 'metadata' in jcm %}-->
+<!--        {% for key, value in jcm['metadata'].items() %}-->
+<!--          <tr>-->
+<!--            <td>{{ key }}</td>-->
+<!--            <td>{{ value }}</td>-->
+<!--          </tr>-->
+<!--        {% endfor %}-->
+<!--      {% endif %}-->
+<!--    </table>-->
 
 <h3>Items (limit={{ limit }}; offset={{ offset }})
   <a href="{{ request.path }}?offset={{ offset + 10 }}"><button class="btn btn-primary">next</button></a>
@@ -114,6 +114,7 @@
   <div class="column" id="right">
     {% include 'visualise.html' %}
   </div>
+
 </div>
 
 

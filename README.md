@@ -46,3 +46,12 @@ pip install git+https://github.com/cityjson/cjio.git@develop
 multiple building needs their children for at least rederning purposes
 - tile insertion or post process
 - preprocess
+
+
+- when select from metadata table default using the latest version (Order by ... limit 1)
+- WITHOUT epsg info 
+
+- bug :(index):143 Uncaught ReferenceError: cols is not defined
+
+## todo:
+- check the X Y order (lat long)

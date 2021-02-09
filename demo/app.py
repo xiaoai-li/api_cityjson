@@ -1,10 +1,9 @@
 import json
 import os
-from timeit import default_timer as timer
 
 from cjio import cityjson
 from flask import Flask, render_template, request, Response
-from pgsql.query_PostgreSQL import query_collections, query_items, query_feature
+from pgsql.query_PostgreSQL import query_collections, query_items, query_feature, query_col_bbox, query_cols_bbox
 
 app = Flask(__name__)
 
@@ -32,9 +31,10 @@ def root():
 
 @app.route('/collections/', methods=['GET'])  # -- html/json
 def collections():
+    bboxes = query_cols_bbox()
     re = request.args.get('f', None)
     if re == 'html' or re is None:
-        return render_template("collections.html", datasets=jindex['collections'])
+        return render_template("collections.html", datasets=jindex['collections'], bounds=bboxes, type=0)
     elif re == 'json':
         return json.dumps(jindex)  # todo?
     else:
@@ -44,20 +44,26 @@ def collections():
 @app.route('/collections/<dataset>/', methods=['GET'])  # -- html/json
 def collection(dataset):
     re = request.args.get('f', None)
+    bbox_wgs84, bbox_original, epsg = query_col_bbox(dataset)
     if re == 'html' or re is None:
         for each in jindex['collections']:
             if each['name'] == dataset:
-                return render_template("collection.html", dataset=each)
+                return render_template("collection.html", dataset=each, bounds=bbox_wgs84, crs=epsg,
+                                       bounds_original=bbox_original, type=1)
         return JINVALIDFORMAT
     elif re == 'json':
-        return open('./datasets/' + dataset + '.json').read()
+        p = PATHDATASETS + dataset + '.json'
+        if not os.path.isfile(p):
+            return None
+        f = open(p)
+        cm = cityjson.reader(file=f, ignore_duplicate_keys=True)
+        return cm.j
     else:
         return JINVALIDFORMAT
 
 
 @app.route('/collections/<dataset>/items/', methods=['GET'])  # -- html/json/bbox/limit/offset
 def items(dataset):
-    s=timer()
     # # -- bbox
     # re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
     # if re_bbox is not None:
@@ -77,9 +83,6 @@ def items(dataset):
     # -- html/json
     re_f = request.args.get('f', None)
     if re_f == 'html' or re_f is None:
-        e=timer()
-        print('query 10 items from '+ dataset + ': '+ str(e-s))
-
         return render_template("items.html", datasetname=dataset, jcm=cm.j, limit=re_limit, offset=re_offset)
     elif re_f == 'json':
         return json.dumps(cm.j)
