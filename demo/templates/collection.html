@@ -48,6 +48,10 @@
 
 
 
+
+
+
+
 </style>
 
 <div class="section bg-gray">
@@ -85,10 +89,10 @@
 
             <tr>
                 <td>Bounding box transformed (EPSG:4326)</td>
-                <td>{{ bounds }}</td>
+                <td id="transformed_bounds">{{ bounds }}</td>
             </tr>
             <tr>
-                <td>Bounding box (EPSG:{{ crs }})</td>
+                <td id="bounds_original">Bounding box (EPSG:{{ crs|int }})</td>
                 <td>{{ bounds_original }}</td>
             </tr>
             <tr>
@@ -96,7 +100,9 @@
                 <td>
                     <div class="columns col-oneline">
                         <input class="form-input" type="text" id="epsg" placeholder="EPSG">
-                        <button class="btn btn-primary">Confirm</button>
+                        <a id="bbox" href="{{ url_for('collections') }}{{ dataset['name']}}">
+                            <button class="btn btn-primary">Confirm</button>
+                        </a>
 
                     </div>
 
@@ -115,12 +121,34 @@
         </table>
 
         <br>
-        <div  class="center">
+        <div class="center">
             {% include 'visualise2d.html' %}
 
         </div>
     </div>
 </div>
 
+<script>
+var epsg={{ crs|int }}
+if (epsg==0)
+{
+    $( "#epsg" ).prop( "disabled", true );
+    $("#bounds_original").text('Bounding box (CRS is unkonwn)');
+    $("#transformed_bounds").text('');
 
+
+}
+$("#bbox").click(function(){
+var minX=$('#minX').val();
+var minY=$('#minY').val();
+var maxX=$('#maxX').val();
+var maxY=$('#maxY').val();
+var epsg=$('#epsg').val();
+
+this.href=this.href+'/?bbox='+minX+','+minY+','+maxX+','+maxY+'&epsg='+epsg;
+console.log(this.href);
+})
+
+
+</script>
 {% endblock %}

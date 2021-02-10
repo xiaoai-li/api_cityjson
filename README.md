@@ -50,8 +50,14 @@ multiple building needs their children for at least rederning purposes
 
 - when select from metadata table default using the latest version (Order by ... limit 1)
 - WITHOUT epsg info 
-
 - bug :(index):143 Uncaught ReferenceError: cols is not defined
+- I will generate (will I???) the file for the filtered file.
+- two tables or one table???
+two --> name ...I do not need set a expired a time
+one --> 
+- trigger or direct delete? multiple sessions. Will it influence this?
+trigger :( time consuming 
+direct :(  session issue
 
 ## todo:
 - check the X Y order (lat long)

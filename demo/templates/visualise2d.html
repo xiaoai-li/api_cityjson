@@ -18,9 +18,9 @@ var map = L.map('map', {
     center: [30,0],
     zoom: 2
 });
-console.log({{ type }})
 
-var opt= {{ type }};
+if (bounds){
+var opt= {{ type|string }};
 if (opt == 1){
     map.fitBounds(bounds);
     var rect = L.rectangle(bounds, {color: 'blue', weight: 3}).on('click', function (e) {
@@ -31,11 +31,10 @@ else
 {
     for (i = 0; i < bounds.length; i++) {
         var rect = L.rectangle(bounds[i], {color: 'blue', weight: 3}).on('click', function (e) {
-        console.info(e);
         }).addTo(map);
     }
 }
-
+}
 
 // Set up the OSM layer
 L.tileLayer(
@@ -77,13 +76,13 @@ map.on('draw:created', function(e) {
     editableLayers.addLayer(layer);
     latlngs=layer.getLatLngs()[0]
     bbox=[latlngs[0]['lat'].toFixed(5),latlngs[0]['lng'].toFixed(5),latlngs[1]['lat'].toFixed(5),latlngs[1]['lng'].toFixed(5)]
-    console.log(bbox)
     $("#epsg").val("4326");
     $("#minY").val(bbox[0]);
     $("#minX").val(bbox[1]);
     $("#maxY").val(bbox[2]);
     $("#maxX").val(bbox[3]);
-
 });
+
+
 
 </script>

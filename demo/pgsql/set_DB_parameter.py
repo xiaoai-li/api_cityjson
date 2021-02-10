@@ -56,6 +56,9 @@ def create_schema(db_name, schema_name):
             datasetTitle text,
             object jsonb,
             file_path text,
+            is_tmp int,
+            timestamp timestamp NOT NULL DEFAULT NOW(),
+            cityobjects int[] ,
             UNIQUE (name, version)
         )
 
@@ -63,8 +66,6 @@ def create_schema(db_name, schema_name):
             id serial PRIMARY KEY,
             obj_id text,
             type text,
-            parents text[] ,
-            children text[] ,
             bbox geometry(POLYGON),
             tile_id int,
             attributes jsonb,
@@ -87,28 +88,21 @@ def create_schema(db_name, schema_name):
             geometry geometry(POLYGONZ),
             geometries_id integer REFERENCES geometries (id) on delete cascade on update cascade
         ) 
+        
+        CREATE TABLE parents_children (
+            id serial  PRIMARY KEY,
+            metadata_id int REFERENCES metadata (id) on delete cascade on update cascade,
+            parent_id text, 
+            child_id text
+            )
         """.format(schema_name)
 
-    command_add_path = """SET search_path TO {}, public;""".format(schema_name)
-
-    commands = [command_drop, command_create, command_add_path]
+    commands = [command_drop, command_create]
 
     for command in commands:
         cur.execute(command)
         conn.commit()
 
-    command_addIndex = """
-        SET search_path to {}, public;
-        -- indexes on geometries
-        CREATE INDEX cityjson_index ON metadata USING GIST(bbox);
-        CREATE INDEX cityobject_index ON city_object USING GIST(bbox);
-        CREATE INDEX geometry_index ON surfaces USING GIST(geometry);
-        
-        -- indexes on normals
-        CREATE INDEX ON city_object(type); 
-        """.format(schema_name)
-    cur.execute(command_addIndex)
-    conn.commit()
     conn.close()
     print("""The creation of schema "{}" in database "{}" is done""".format(schema_name, db_name))
 
@@ -123,6 +117,7 @@ def add_indices(db_name, schema_name='addcolumns'):
         CREATE INDEX ON city_object(metadata_id); 
         CREATE INDEX ON geometries(city_object_id); 
         CREATE INDEX ON surfaces(geometries_id); 
+        CREATE INDEX ON parents_children(metadata_id); 
 
         -- geometries
         CREATE INDEX ON surfaces USING GIST(geometry);
@@ -132,7 +127,10 @@ def add_indices(db_name, schema_name='addcolumns'):
         -- attributs
         CREATE INDEX ON city_object(type);
         CREATE INDEX ON city_object(tile_id);
-
+        CREATE INDEX ON metadata(is_tmp);
+        CREATE INDEX ON metadata(timestamp);
+        CREATE INDEX ON parents_children(child_id); 
+        CREATE INDEX ON parents_children(parent_id); 
          """.format(schema_name)
     cur.execute(command_addindices)
     conn.commit()

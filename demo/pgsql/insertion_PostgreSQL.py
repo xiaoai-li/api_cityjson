@@ -7,7 +7,6 @@ import numpy as np
 import psycopg2
 from hilbertcurve.hilbertcurve import HilbertCurve
 from scipy.spatial import cKDTree
-from timeit import default_timer as timer
 
 DEFAULT_DB = 'cityjson'
 DEFAULT_SCHEMA = 'addcolumns'
@@ -157,7 +156,9 @@ def insert_cityjson(file_name, schema_name):
 
     # make sure proportional
     num_cityobjects = len(data['CityObjects'])
-    rate = int(num_cityobjects / 1000)
+    rate = int(num_cityobjects / 100)
+    if rate == 0:
+        rate = 1
     len_x = max_xy[0] - min_xy[0]
     len_y = max_xy[1] - min_xy[1]
     step_x = int(len_x / rate)
@@ -196,12 +197,16 @@ def insert_cityjson(file_name, schema_name):
         cityobject = data['CityObjects'][obj_id]
         vertices = process_geometry(data, cityobject)
 
-        parents = None
-        if 'parents' in cityobject.keys():
-            parents = cityobject['parents']
-        children = None
-        if 'children' in cityobject.keys():
-            children = cityobject['children']
+        if cityobject['type'] == 'BuildingPart':
+            if 'parents' in cityobject.keys():
+                parents = cityobject['parents']
+                for parent in parents:
+                    insert_parents_children = """
+                    INSERT INTO {}.parents_children (metadata_id, parent_id, child_id) 
+                    VALUES (currval('metadata_id_seq'), %s, %s)
+                    """.format(schema_name)
+                    cur.execute(insert_parents_children, (parent, obj_id))
+                    conn.commit()
 
         attributes = {}
         if 'attributes' in cityobject.keys():
@@ -218,11 +223,11 @@ def insert_cityjson(file_name, schema_name):
 
         # todo: or center?
         insert_cityobjects = """
-        INSERT INTO {}.city_object (obj_id, type, bbox, tile_id, parents, children, attributes, vertices, object, metadata_id)
-        VALUES (%s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s,%s, %s, %s, %s, currval('metadata_id_seq'))
+        INSERT INTO {}.city_object (obj_id, type, bbox, tile_id, attributes, vertices, object, metadata_id)
+        VALUES (%s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}),%s, %s, %s, %s, currval('metadata_id_seq'))
         """.format(schema_name, bbox2d[0], bbox2d[1], bbox2d[2], bbox2d[3], geo_crs)
         cur.execute(insert_cityobjects,
-                    (obj_id, cityobject['type'], hilbert_index, parents, children, json.dumps(attributes),
+                    (obj_id, cityobject['type'], hilbert_index, json.dumps(attributes),
                      json.dumps(vertices),
                      json.dumps(cityobject)))
         conn.commit()
@@ -335,16 +340,12 @@ def insert_cityjson(file_name, schema_name):
     # UPDATE TILE_ID of multipart building
     update_multipart_buildings = """
         SET search_path TO {};
-        
+
         UPDATE city_object SET tile_id = tile_value.value
-        FROM
-        (SELECT parent_id,avg(tile_id) ::numeric::integer as value
-        FROM city_object, (SELECT children_id,obj_id as parent_id
-        FROM (city_object AS c JOIN metadata AS m ON c.metadata_id=m.id), unnest(children) AS children_id
-        WHERE name=%s
-        ORDER BY tile_id) AS children
-        WHERE obj_id = children_id
-        GROUP BY parent_id) AS tile_value
+        FROM (SELECT meta.id,parent_id,avg(tile_id) ::numeric::integer as value
+        FROM (parents_children as pc JOIN metadata as meta on pc.metadata_id=meta.id), city_object as obj
+        WHERE pc.child_id=obj.obj_id
+        GROUP BY meta.id,pc.parent_id) AS tile_value
         WHERE city_object.obj_id = tile_value.parent_id;""".format(schema_name)
     cur.execute(update_multipart_buildings, [file_name])
     conn.commit()
@@ -352,14 +353,12 @@ def insert_cityjson(file_name, schema_name):
     print("""The insertion of "{}" in schema "{}" is done""".format(file_name, schema_name))
 
 
-# insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
-# insert_cityjson('denhaag', DEFAULT_SCHEMA)
-# insert_cityjson('delft', DEFAULT_SCHEMA)
+insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
+insert_cityjson('denhaag', DEFAULT_SCHEMA)
+insert_cityjson('delft', DEFAULT_SCHEMA)
 # insert_cityjson('vienna', DEFAULT_SCHEMA)
 # insert_cityjson('montreal', DEFAULT_SCHEMA)
 # insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
-start=timer()
-insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
-end=timer()
-print(end-start)
+# insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
+
 #

@@ -43,39 +43,40 @@ def collections():
 
 @app.route('/collections/<dataset>/', methods=['GET'])  # -- html/json
 def collection(dataset):
-    re = request.args.get('f', None)
-    bbox_wgs84, bbox_original, epsg = query_col_bbox(dataset)
-    if re == 'html' or re is None:
-        for each in jindex['collections']:
-            if each['name'] == dataset:
-                return render_template("collection.html", dataset=each, bounds=bbox_wgs84, crs=epsg,
-                                       bounds_original=bbox_original, type=1)
-        return JINVALIDFORMAT
-    elif re == 'json':
-        p = PATHDATASETS + dataset + '.json'
-        if not os.path.isfile(p):
-            return None
-        f = open(p)
-        cm = cityjson.reader(file=f, ignore_duplicate_keys=True)
-        return cm.j
+    # -- bbox
+    re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
+    if re_bbox is not None:
+        r = re_bbox.split(',')
+        if len(r) != 4:
+            return JINVALIDFORMAT
+        try:
+            b = list(map(float, r))
+            re_epsg = request.args.get('epsg', None)
+
+        except:
+            return JINVALIDFORMAT
     else:
-        return JINVALIDFORMAT
+        re = request.args.get('f', None)
+        bbox_wgs84, bbox_original, epsg = query_col_bbox(dataset)
+        if re == 'html' or re is None:
+            for each in jindex['collections']:
+                if each['name'] == dataset:
+                    return render_template("collection.html", dataset=each, bounds=json.dumps(bbox_wgs84),
+                                           crs=epsg, bounds_original=bbox_original, type=1)
+            return JINVALIDFORMAT
+        elif re == 'json':
+            p = PATHDATASETS + dataset + '.json'
+            if not os.path.isfile(p):
+                return None
+            f = open(p)
+            cm = cityjson.reader(file=f, ignore_duplicate_keys=True)
+            return cm.j
+        else:
+            return JINVALIDFORMAT
 
 
 @app.route('/collections/<dataset>/items/', methods=['GET'])  # -- html/json/bbox/limit/offset
 def items(dataset):
-    # # -- bbox
-    # re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
-    # if re_bbox is not None:
-    #     r = re_bbox.split(',')
-    #     if len(r) != 4:
-    #         return JINVALIDFORMAT
-    #     try:
-    #         b = list(map(float, r))
-    #     except:
-    #         return JINVALIDFORMAT
-    #     cm = cm.get_subset_bbox(bbox=b, exclude=False)
-
     re_limit = int(request.args.get('limit', default=10))
     re_offset = int(request.args.get('offset', default=0))
     cm = query_items(file_name=dataset, limit=re_limit, offset=re_offset)

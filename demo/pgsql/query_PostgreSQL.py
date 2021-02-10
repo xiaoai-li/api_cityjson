@@ -44,21 +44,13 @@ def query_items(file_name=None, schema_name='addcolumns', limit=10, offset=0):
     # D. CityObjects
     query_cityobjects = """
         SET search_path to {}, public;
-        (SELECT obj_id, c.object, vertices,version
+        SELECT obj_id, c.object, vertices,version
         FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
         WHERE name=%s
         ORDER BY tile_id
-        LIMIT {} OFFSET {})
-        UNION
-        SELECT obj_id, object, vertices,version
-        FROM city_object, (SELECT children_flattened, version
-        FROM (city_object AS c JOIN metadata AS m ON c.metadata_id=m.id), unnest(children) AS children_flattened
-        WHERE name=%s
-        ORDER BY tile_id
-        LIMIT {} OFFSET {}) AS children
-        WHERE obj_id = children_flattened;
-        """.format(schema_name, limit, offset, limit, offset)
-    cur.execute(query_cityobjects, [file_name, file_name])
+        LIMIT {} OFFSET {};
+        """.format(schema_name, limit, offset)
+    cur.execute(query_cityobjects, [file_name])
     object_cityobjects = cur.fetchall()
     threaded_postgreSQL_pool.putconn(conn)
 
@@ -133,25 +125,44 @@ def query_col_bbox(file_name=None, schema_name='addcolumns'):
 
                 SELECT st_asgeojson(st_transform(bbox, 4326)),st_asgeojson(bbox), referencesystem
                 FROM metadata
-                WHERE name=%s
+                WHERE name=%s and referencesystem is not null
                 """.format(schema_name)
         cur.execute(query_bbox, [file_name])
-        results=cur.fetchall()[0]
-        geo_wgs84 = json.loads(results[0])
-        bbox = geo_wgs84['coordinates'][0]
-        pts_xy = np.array(bbox).T[:2]
-        min_xy = pts_xy.min(axis=1)
-        max_xy = pts_xy.max(axis=1)
-        bbox_wgs84 = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
-        geo_original = json.loads(results[1])
-        bbox = geo_original['coordinates'][0]
-        pts_xy = np.array(bbox).T[:2]
-        min_xy = pts_xy.min(axis=1)
-        max_xy = pts_xy.max(axis=1)
-        bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
-        epsg = results[2]
+        results = cur.fetchall()
+        if len(results) > 0:
+            geo_wgs84 = json.loads(results[0][0])
+            bbox = geo_wgs84['coordinates'][0]
+            pts_xy = np.array(bbox).T[:2]
+            min_xy = pts_xy.min(axis=1)
+            max_xy = pts_xy.max(axis=1)
+            bbox_wgs84 = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
+            geo_original = json.loads(results[0][1])
+            bbox = geo_original['coordinates'][0]
+            pts_xy = np.array(bbox).T[:2]
+            min_xy = pts_xy.min(axis=1)
+            max_xy = pts_xy.max(axis=1)
+            bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
+            epsg = results[0][2]
+        else:
+            query_bbox = """
+                    SET search_path to {}, public;
 
-        return (bbox_wgs84, bbox_original, epsg)
+                    SELECT st_asgeojson(bbox)
+                    FROM metadata
+                    WHERE name=%s 
+                    """.format(schema_name)
+            cur.execute(query_bbox, [file_name])
+            results = cur.fetchall()
+            bbox_wgs84 = None
+            geo_original = json.loads(results[0][0])
+            bbox = geo_original['coordinates'][0]
+            pts_xy = np.array(bbox).T[:2]
+            min_xy = pts_xy.min(axis=1)
+            max_xy = pts_xy.max(axis=1)
+            bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
+            epsg = None
+
+        return bbox_wgs84, bbox_original, epsg
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
         return
@@ -183,6 +194,58 @@ def query_cols_bbox(schema_name='addcolumns'):
         return
 
 
+def filter_col_bbox(file_name=None, schema_name='addcolumns'):
+    try:
+        conn = threaded_postgreSQL_pool.getconn()
+        cur = conn.cursor()  # Open a cursor to perform database operations
+
+        query_bbox = """
+                SET search_path to {}, public;
+
+                SELECT st_asgeojson(st_transform(bbox, 4326)),st_asgeojson(bbox), referencesystem
+                FROM metadata
+                WHERE name=%s and referencesystem is not null
+                """.format(schema_name)
+        cur.execute(query_bbox, [file_name])
+        results = cur.fetchall()
+        if len(results) > 0:
+            geo_wgs84 = json.loads(results[0][0])
+            bbox = geo_wgs84['coordinates'][0]
+            pts_xy = np.array(bbox).T[:2]
+            min_xy = pts_xy.min(axis=1)
+            max_xy = pts_xy.max(axis=1)
+            bbox_wgs84 = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
+            geo_original = json.loads(results[0][1])
+            bbox = geo_original['coordinates'][0]
+            pts_xy = np.array(bbox).T[:2]
+            min_xy = pts_xy.min(axis=1)
+            max_xy = pts_xy.max(axis=1)
+            bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
+            epsg = results[0][2]
+        else:
+            query_bbox = """
+                    SET search_path to {}, public;
+
+                    SELECT st_asgeojson(bbox)
+                    FROM metadata
+                    WHERE name=%s 
+                    """.format(schema_name)
+            cur.execute(query_bbox, [file_name])
+            results = cur.fetchall()
+            bbox_wgs84 = None
+            geo_original = json.loads(results[0][0])
+            bbox = geo_original['coordinates'][0]
+            pts_xy = np.array(bbox).T[:2]
+            min_xy = pts_xy.min(axis=1)
+            max_xy = pts_xy.max(axis=1)
+            bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
+            epsg = None
+
+        return bbox_wgs84, bbox_original, epsg
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+        return
+
 import psycopg2
 from psycopg2 import pool
 
@@ -196,7 +259,7 @@ try:
          database="cityjson")
     if (threaded_postgreSQL_pool):
         print("Connection pool created successfully using ThreadedConnectionPool")
-        query_col_bbox('delft')
+        query_col_bbox('Zurich_Building_LoD2_V10')
 
 
 finally:
