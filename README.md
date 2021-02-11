@@ -57,7 +57,7 @@ two --> name ...I do not need set a expired a time
 one --> 
 - trigger or direct delete? multiple sessions. Will it influence this?
 trigger :( time consuming 
-direct :(  session issue
+direct :(  
 
 
 - grid (some noise)

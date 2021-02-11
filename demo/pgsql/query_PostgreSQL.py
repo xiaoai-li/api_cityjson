@@ -62,7 +62,7 @@ def query_items(file_name=None, schema_name='addcolumns', limit=10, offset=0, bb
             SELECT obj_id, c.metadata_id, c.object, vertices,version,parents,children
             FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
             WHERE name=%s AND 
-            c.bbox&&ST_Envelope('LINESTRING({} {}, {} {})'::geometry))
+            (c.bbox&&ST_Envelope('LINESTRING({} {}, {} {})'::geometry))
             ORDER BY tile_id
             LIMIT {} OFFSET {}),
             """.format(schema_name, bbox[0], bbox[1], bbox[2], bbox[3], limit, offset)
