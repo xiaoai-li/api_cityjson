@@ -37,28 +37,85 @@ def add_cityobject(cityjson, id, object, vertices):
         update_geom_indices(g["boundaries"], offset)
 
 
-def query_items(file_name=None, schema_name='addcolumns', limit=10, offset=0):
+def query_items(file_name=None, schema_name='addcolumns', limit=10, offset=0, bbox=None, epsg=None):
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()  # Open a cursor to perform database operations
 
-    # D. CityObjects
+    if not bbox:
+        query_origin = """
+            SET search_path to {}, public;
+            
+            -- original query
+            WITH origin AS (
+            SELECT obj_id, c.metadata_id, c.object, vertices,version,parents,children
+            FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
+            WHERE name=%s
+            ORDER BY tile_id
+            LIMIT {} OFFSET {}),
+            """.format(schema_name, limit, offset)
+    elif not epsg:
+        query_origin = """
+            SET search_path to {}, public;
+
+            -- original query
+            WITH origin AS (
+            SELECT obj_id, c.metadata_id, c.object, vertices,version,parents,children
+            FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
+            WHERE name=%s AND 
+            c.bbox&&ST_Envelope('LINESTRING({} {}, {} {})'::geometry))
+            ORDER BY tile_id
+            LIMIT {} OFFSET {}),
+            """.format(schema_name, bbox[0], bbox[1], bbox[2], bbox[3], limit, offset)
+    else:
+        query_origin = """
+            SET search_path to {}, public;
+
+            -- original query
+            WITH origin AS (
+            SELECT obj_id, c.metadata_id, c.object, vertices,version,parents,children
+            FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
+            WHERE name=%s AND 
+            (st_transform(c.bbox, {})&&ST_Envelope('SRID={};LINESTRING({} {}, {} {} )'::geometry))
+            ORDER BY tile_id
+            LIMIT {} OFFSET {}),
+            """.format(schema_name, epsg, epsg, bbox[0], bbox[1], bbox[2], bbox[3], limit, offset)
+
     query_cityobjects = """
-        SET search_path to {}, public;
-        SELECT obj_id, c.object, vertices,version
-        FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
-        WHERE name=%s
-        ORDER BY tile_id
-        LIMIT {} OFFSET {};
-        """.format(schema_name, limit, offset)
+        {}
+
+        -- get parents of original query
+        parents AS(
+        SELECT obj_id, object,vertices,children
+        FROM city_object
+        WHERE obj_id IN (SELECT unnest(parents) FROM origin)),
+
+        -- get children of original query
+        children AS(
+        SELECT obj_id, object,vertices
+        FROM city_object
+        WHERE obj_id IN (SELECT unnest(children) FROM origin)),
+
+        -- get siblings of original query
+        siblings AS(
+        SELECT obj_id, object,vertices
+        FROM city_object
+        WHERE obj_id IN (SELECT unnest(children) FROM parents))
+
+        SELECT obj_id, object,vertices FROM origin
+        UNION
+        SELECT obj_id, object,vertices FROM parents
+        UNION SELECT * FROM children
+        UNION SELECT * FROM siblings
+        """.format(query_origin)
     cur.execute(query_cityobjects, [file_name])
+
     object_cityobjects = cur.fetchall()
     threaded_postgreSQL_pool.putconn(conn)
-
     cityjson = CityJSON()
     cityjson.j['type'] = 'CityJSON'
 
     for queried_cityobject in object_cityobjects:
-        cityjson.j['version'] = queried_cityobject[3]
+        # todo: add versions
         id = queried_cityobject[0]
         object = queried_cityobject[1]
         vertices = queried_cityobject[2]
@@ -194,57 +251,6 @@ def query_cols_bbox(schema_name='addcolumns'):
         return
 
 
-def filter_col_bbox(file_name=None, schema_name='addcolumns'):
-    try:
-        conn = threaded_postgreSQL_pool.getconn()
-        cur = conn.cursor()  # Open a cursor to perform database operations
-
-        query_bbox = """
-                SET search_path to {}, public;
-
-                SELECT st_asgeojson(st_transform(bbox, 4326)),st_asgeojson(bbox), referencesystem
-                FROM metadata
-                WHERE name=%s and referencesystem is not null
-                """.format(schema_name)
-        cur.execute(query_bbox, [file_name])
-        results = cur.fetchall()
-        if len(results) > 0:
-            geo_wgs84 = json.loads(results[0][0])
-            bbox = geo_wgs84['coordinates'][0]
-            pts_xy = np.array(bbox).T[:2]
-            min_xy = pts_xy.min(axis=1)
-            max_xy = pts_xy.max(axis=1)
-            bbox_wgs84 = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
-            geo_original = json.loads(results[0][1])
-            bbox = geo_original['coordinates'][0]
-            pts_xy = np.array(bbox).T[:2]
-            min_xy = pts_xy.min(axis=1)
-            max_xy = pts_xy.max(axis=1)
-            bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
-            epsg = results[0][2]
-        else:
-            query_bbox = """
-                    SET search_path to {}, public;
-
-                    SELECT st_asgeojson(bbox)
-                    FROM metadata
-                    WHERE name=%s 
-                    """.format(schema_name)
-            cur.execute(query_bbox, [file_name])
-            results = cur.fetchall()
-            bbox_wgs84 = None
-            geo_original = json.loads(results[0][0])
-            bbox = geo_original['coordinates'][0]
-            pts_xy = np.array(bbox).T[:2]
-            min_xy = pts_xy.min(axis=1)
-            max_xy = pts_xy.max(axis=1)
-            bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
-            epsg = None
-
-        return bbox_wgs84, bbox_original, epsg
-    except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
-        return
 
 import psycopg2
 from psycopg2 import pool

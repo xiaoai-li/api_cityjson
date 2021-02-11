@@ -59,5 +59,11 @@ one -->
 trigger :( time consuming 
 direct :(  session issue
 
+
+- grid (some noise)
+    from vertices (some noises)
+    from geographicalExtend ()
+
 ## todo:
 - check the X Y order (lat long)
+- collection witt unkonw crs filtering when drawing still 4326 can be written daar

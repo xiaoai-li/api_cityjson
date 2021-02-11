@@ -75,7 +75,8 @@ map.on('draw:created', function(e) {
     layer = e.layer;
     editableLayers.addLayer(layer);
     latlngs=layer.getLatLngs()[0]
-    bbox=[latlngs[0]['lat'].toFixed(5),latlngs[0]['lng'].toFixed(5),latlngs[1]['lat'].toFixed(5),latlngs[1]['lng'].toFixed(5)]
+    console.log(latlngs)
+    bbox=[latlngs[0]['lat'].toFixed(5),latlngs[0]['lng'].toFixed(5),latlngs[1]['lat'].toFixed(5),latlngs[2]['lng'].toFixed(5)]
     $("#epsg").val("4326");
     $("#minY").val(bbox[0]);
     $("#minX").val(bbox[1]);

@@ -1,0 +1,1 @@
+DELETE FROM metadata WHERE is_tmp =1 AND timestamp < NOW() - INTERVAL '10 minute';
