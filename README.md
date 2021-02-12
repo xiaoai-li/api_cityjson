@@ -67,3 +67,5 @@ direct :(
 ## todo:
 - check the X Y order (lat long)
 - collection witt unkonw crs filtering when drawing still 4326 can be written daar
+- query_feature (relatives)
+- set path and {}.metadata during insertion

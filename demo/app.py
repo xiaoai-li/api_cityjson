@@ -3,7 +3,8 @@ import os
 
 from cjio import cityjson
 from flask import Flask, render_template, request, Response
-from pgsql.query_PostgreSQL import query_collections, query_items, query_feature, query_col_bbox, query_cols_bbox
+from pgsql.query_PostgreSQL import query_collections, query_items, query_feature, query_col_bbox, query_cols_bbox, \
+    filter_col_bbox
 
 app = Flask(__name__)
 
@@ -43,30 +44,6 @@ def collections():
 
 @app.route('/collections/<dataset>/', methods=['GET'])  # -- html/json
 def collection(dataset):
-    re = request.args.get('f', None)
-    bbox_wgs84, bbox_original, epsg = query_col_bbox(dataset)
-    if re == 'html' or re is None:
-        for each in jindex['collections']:
-            if each['name'] == dataset:
-                return render_template("collection.html", dataset=each, bounds=json.dumps(bbox_wgs84),
-                                       crs=epsg, bounds_original=bbox_original, type=1)
-        return JINVALIDFORMAT
-    elif re == 'json':
-        p = PATHDATASETS + dataset + '.json'
-        if not os.path.isfile(p):
-            return None
-        f = open(p)
-        cm = cityjson.reader(file=f, ignore_duplicate_keys=True)
-        return cm.j
-    else:
-        return JINVALIDFORMAT
-
-
-@app.route('/collections/<dataset>/items/', methods=['GET'])  # -- html/json/bbox/limit/offset
-def items(dataset):
-    re_limit = int(request.args.get('limit', default=10))
-    re_offset = int(request.args.get('offset', default=0))
-
     # -- bbox
     re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
     re_epsg = request.args.get('epsg', None)
@@ -77,10 +54,44 @@ def items(dataset):
             return JINVALIDFORMAT
         try:
             re_bbox = list(map(float, r))
-
+            filter_dataset = filter_col_bbox(file_name=dataset, bbox=re_bbox, epsg=re_epsg)
+            bbox_wgs84, bbox_original, epsg = query_col_bbox(filter_dataset)
+            ds = {"name": filter_dataset, "title": ''}
+            return render_template("collection.html", dataset=ds, bounds=json.dumps(bbox_wgs84),
+                                   crs=epsg, bounds_original=bbox_original, type=1)
         except:
             return JINVALIDFORMAT
-    cm = query_items(file_name=dataset, limit=re_limit, offset=re_offset, bbox=re_bbox, epsg=re_epsg)
+    else:
+        bbox_wgs84, bbox_original, epsg = query_col_bbox(dataset)
+        re = request.args.get('f', None)
+        if re == 'html' or re is None:
+            collections = query_collections('addcolumns', with_tmps=True)
+            for each in collections:
+                if each['name'] == dataset:
+                    return render_template("collection.html", dataset=each, bounds=json.dumps(bbox_wgs84),
+                                           crs=epsg, bounds_original=bbox_original, type=1)
+            return JINVALIDFORMAT
+        elif re == 'json':
+            p = PATHDATASETS + dataset + '.json'
+            if not os.path.isfile(p):
+                return None
+            f = open(p)
+            cm = cityjson.reader(file=f, ignore_duplicate_keys=True)
+            return cm.j
+        else:
+            return JINVALIDFORMAT
+
+
+@app.route('/collections/<dataset>/items/', methods=['GET'])  # -- html/json/bbox/limit/offset
+def items(dataset):
+    re_limit = int(request.args.get('limit', default=10))
+    re_offset = int(request.args.get('offset', default=0))
+    is_tmp = False
+
+    if '_filtered_' in dataset:
+        is_tmp = True
+
+    cm = query_items(file_name=dataset, limit=re_limit, offset=re_offset, is_tmp=is_tmp)
 
     # -- html/json
     re_f = request.args.get('f', None)
@@ -96,6 +107,7 @@ def items(dataset):
 def item(dataset, featureID):
     re = request.args.get('f', None)
     if re == 'html' or re is None:
+
         f = query_feature(file_name=dataset, feature_id=featureID).j
         if 'metadata' in f:
             del f['metadata']

@@ -56,6 +56,8 @@ def create_schema(db_name, schema_name):
             datasetTitle text,
             object jsonb,
             file_path text,
+            timestamp timestamp NOT NULL DEFAULT NOW(),
+            cityobjects int[] ,
             UNIQUE (name, version)
         )
 
@@ -118,6 +120,7 @@ def add_indices(db_name, schema_name='addcolumns'):
         -- attributs
         CREATE INDEX ON city_object(type);
         CREATE INDEX ON city_object(tile_id);
+        CREATE INDEX ON metadata(timestamp);
          """.format(schema_name)
     cur.execute(command_addindices)
     conn.commit()
