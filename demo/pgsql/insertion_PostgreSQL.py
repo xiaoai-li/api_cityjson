@@ -1,6 +1,5 @@
 import copy
 import json
-import math
 import os
 import sys
 
@@ -173,35 +172,10 @@ def insert_cityjson(file_name, schema_name):
         arr_vertices.extend(vertices)
     bbox2ds = np.array(bbox2ds)
     centroids = np.array(centroids)
-    # prepare tiles
+
     pts_xy = np.array(arr_vertices).T[:2]
     min_xy = pts_xy.min(axis=1)
     max_xy = pts_xy.max(axis=1)
-
-    # make sure proportional
-    num_cityobjects = len(data['CityObjects'])
-    r = math.log10(num_cityobjects)  # todo: imprpve the proportion
-    rate = 5 ** (r - 1)
-
-    len_x = max_xy[0] - min_xy[0]
-    len_y = max_xy[1] - min_xy[1]
-    step_x = len_x / rate
-    step_y = len_y / rate
-    num_x = int(len_x / step_x) + 1
-    num_y = int(len_y / step_y) + 1
-
-    grid_x = np.arange(int(min_xy[0]), int(min_xy[0]) + rate * step_x, step_x)
-    grid_y = np.arange(int(min_xy[1]), int(min_xy[1]) + rate * step_y, step_y)
-    grid_xy = []
-    for x in grid_x:
-        for y in grid_y:
-            grid_xy.append([x, y])
-    grid_xy = np.array(grid_xy)
-    print(len(grid_xy))
-    tree = cKDTree(grid_xy, leafsize=20)
-    hilbert_indices = create_hilbert(num_x, num_y)
-    _, ids = tree.query(centroids, k=1)
-    tile_ids = np.array(hilbert_indices[ids])
 
     # update parents of multi-part buildings
     for parent_id in parent_ids:
@@ -212,10 +186,9 @@ def insert_cityjson(file_name, schema_name):
                          children_bbox2d[3, :].max()]
         parent_index = obj_ids.index(parent_id)
         bbox2ds[parent_index] = parent_bbox2d
-        children_tile_ids = tile_ids[children_indices]
-        parent_tile_id = int(np.median(children_tile_ids))
-        tile_ids[parent_index] = parent_tile_id
-        tile_ids[children_indices] = parent_tile_id
+        children_centroids = centroids[children_indices].T
+        parent_centroid = [np.median(children_centroids[0, :]), np.median(children_centroids[1, :])]
+        centroids[parent_index] = parent_centroid
 
     print('tiles are indexed')
 
@@ -231,7 +204,8 @@ def insert_cityjson(file_name, schema_name):
 
     # store city_object table
     step_index = range(int(count_cityobjects * 2 / 10), count_cityobjects, int(count_cityobjects / 10))
-    insert_order = np.argsort(tile_ids)
+    tree = cKDTree(centroids, leafsize=1)
+    insert_order = np.argsort(tree.indices)
 
     for step_id, obj_index in enumerate(insert_order):
         obj_id = obj_ids[obj_index]
@@ -379,7 +353,7 @@ def insert_cityjson(file_name, schema_name):
 #
 #
 # insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
-insert_cityjson('denhaag', DEFAULT_SCHEMA)
+# insert_cityjson('denhaag', DEFAULT_SCHEMA)
 # insert_cityjson('delft', DEFAULT_SCHEMA)
 # insert_cityjson('vienna', DEFAULT_SCHEMA)
 # insert_cityjson('montreal', DEFAULT_SCHEMA)
