@@ -65,7 +65,7 @@ def collection(dataset):
         bbox_wgs84, bbox_original, epsg = query_col_bbox(dataset)
         re = request.args.get('f', None)
         if re == 'html' or re is None:
-            collections = query_collections('addcolumns', with_tmps=True)
+            collections = query_collections()
             for each in collections:
                 if each['name'] == dataset:
                     return render_template("collection.html", dataset=each, bounds=json.dumps(bbox_wgs84),
@@ -86,12 +86,7 @@ def collection(dataset):
 def items(dataset):
     re_limit = int(request.args.get('limit', default=10))
     re_offset = int(request.args.get('offset', default=0))
-    is_tmp = False
-
-    if '_filtered_' in dataset:
-        is_tmp = True
-
-    cm = query_items(file_name=dataset, limit=re_limit, offset=re_offset, is_tmp=is_tmp)
+    cm = query_items(file_name=dataset, limit=50, offset=re_offset)
 
     # -- html/json
     re_f = request.args.get('f', None)

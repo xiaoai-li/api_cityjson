@@ -69,3 +69,4 @@ direct :(
 - collection witt unkonw crs filtering when drawing still 4326 can be written daar
 - query_feature (relatives)
 - set path and {}.metadata during insertion
+- integrate with cjio (remove ophan..))

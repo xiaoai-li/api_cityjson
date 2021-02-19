@@ -16,7 +16,7 @@ PATHDATASETS = '../datasets/'
 
 param_dic = {
     "host": "localhost",
-    "database": "cityjson",
+    "database": DEFAULT_DB,
     "user": "postgres",
     "password": "1234"
 }
@@ -111,7 +111,7 @@ def create_hilbert(num_x, num_y):
 
     hilbert_curve = HilbertCurve(20, 2)
     hilbert_index = hilbert_curve.distances_from_points(grid_xy)
-    return hilbert_index
+    return np.array(hilbert_index)
 
 
 def insert_cityjson(file_name, schema_name):
@@ -136,7 +136,6 @@ def insert_cityjson(file_name, schema_name):
     ref_system = None  # If no SRID is specified the unknown spatial reference system (SRID 0) is used.
     geo_crs = 0
     data_title = None
-    file_server = 'http://192.168.1.101:5050/' + file_name + '.json'
 
     if 'metadata' in data.keys():
         if 'referenceSystem' in data['metadata']:
@@ -153,12 +152,27 @@ def insert_cityjson(file_name, schema_name):
     # get real bbox
     separate_vertices = []
     arr_vertices = []
+    bbox2ds = []
+    centroids = []
+    parent_ids = []  # records which objs are multipart buildings
+    obj_ids = list(data['CityObjects'].keys())
     for obj_id in data['CityObjects']:
         cityobject = data['CityObjects'][obj_id]
         vertices = process_geometry(data, cityobject)
+        if len(vertices) == 0:
+            bbox2d = [0, 0, 0, 0]
+            centroid = [0, 0]  # update later mainly for the tree query
+            parent_ids.append(obj_id)
+        else:
+            x, y, z = zip(*vertices)
+            bbox2d = [min(x), min(y), max(x), max(y)]
+            centroid = [(bbox2d[0] + bbox2d[2]) / 2, (bbox2d[1] + bbox2d[3]) / 2]
+        bbox2ds.append(bbox2d)
+        centroids.append(centroid)
         separate_vertices.append(vertices)
         arr_vertices.extend(vertices)
-
+    bbox2ds = np.array(bbox2ds)
+    centroids = np.array(centroids)
     # prepare tiles
     pts_xy = np.array(arr_vertices).T[:2]
     min_xy = pts_xy.min(axis=1)
@@ -186,23 +200,43 @@ def insert_cityjson(file_name, schema_name):
     print(len(grid_xy))
     tree = cKDTree(grid_xy, leafsize=20)
     hilbert_indices = create_hilbert(num_x, num_y)
-    print('hilbert curve is created')
+    _, ids = tree.query(centroids, k=1)
+    tile_ids = np.array(hilbert_indices[ids])
+
+    # update parents of multi-part buildings
+    for parent_id in parent_ids:
+        cityobject = data['CityObjects'][parent_id]
+        children_indices = [obj_ids.index(child_id) for child_id in cityobject['children']]
+        children_bbox2d = bbox2ds[children_indices].T
+        parent_bbox2d = [children_bbox2d[0, :].min(), children_bbox2d[1, :].min(), children_bbox2d[2, :].max(),
+                         children_bbox2d[3, :].max()]
+        parent_index = obj_ids.index(parent_id)
+        bbox2ds[parent_index] = parent_bbox2d
+        children_tile_ids = tile_ids[children_indices]
+        parent_tile_id = int(np.median(children_tile_ids))
+        tile_ids[parent_index] = parent_tile_id
+        tile_ids[children_indices] = parent_tile_id
+
+    print('tiles are indexed')
 
     insert_metadata = """
     SET search_path TO {}, public; 
     INSERT INTO {}.metadata 
-    (name, version, referenceSystem, bbox, datasetTitle, object,file_path) 
-    VALUES ( %s, %s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s,%s)""" \
+    (name, version, referenceSystem, bbox, datasetTitle, object) 
+    VALUES ( %s, %s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s)""" \
         .format(schema_name, schema_name, min_xy[0], min_xy[1], max_xy[0], max_xy[1], geo_crs)
     cur.execute(insert_metadata,
-                (file_name, data['version'], ref_system, data_title, json.dumps(data['metadata']), file_server))
+                (file_name, data['version'], ref_system, data_title, json.dumps(data['metadata'])))
     conn.commit()
 
     # store city_object table
     step_index = range(int(count_cityobjects * 2 / 10), count_cityobjects, int(count_cityobjects / 10))
-    for obj_index, obj_id in enumerate(data['CityObjects']):
-        if obj_index in step_index:
-            finished_rate100 = int(obj_index / count_cityobjects * 10) * 10
+    insert_order = np.argsort(tile_ids)
+
+    for step_id, obj_index in enumerate(insert_order):
+        obj_id = obj_ids[obj_index]
+        if step_id in step_index:
+            finished_rate100 = int(step_id / count_cityobjects * 10) * 10
             print('The insertion has be finished ', finished_rate100, '%.')
         cityobject = data['CityObjects'][obj_id]
         vertices = separate_vertices[obj_index]
@@ -218,28 +252,16 @@ def insert_cityjson(file_name, schema_name):
         if 'attributes' in cityobject.keys():
             attributes = cityobject['attributes']
 
-        if len(vertices) == 0:
-            insert_cityobjects = """
-            INSERT INTO {}.city_object (obj_id, type, parents, children, attributes, vertices, object, metadata_id)
-            VALUES (%s, %s, %s, %s, %s, %s,%s, currval('metadata_id_seq'))
-            """.format(schema_name,)
-            cur.execute(insert_cityobjects,
-                        (obj_id, cityobject['type'], parents, children, json.dumps(attributes),
-                         json.dumps(vertices),
-                         json.dumps(cityobject)))
-        else:
-            x, y, z = zip(*vertices)
-            bbox2d = [min(x), min(y), max(x), max(y)]
-            _, ix = tree.query([[(min(x) + max(x)) / 2, (min(y) + max(y)) / 2]], k=1)
-            hilbert_index = hilbert_indices[ix[0]]
-            insert_cityobjects = """
-            INSERT INTO {}.city_object (obj_id, type, bbox, tile_id,  parents, children, attributes, vertices, object, metadata_id)
-            VALUES (%s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}),%s, %s, %s, %s,%s, %s, currval('metadata_id_seq'))
-            """.format(schema_name, bbox2d[0], bbox2d[1], bbox2d[2], bbox2d[3], geo_crs)
-            cur.execute(insert_cityobjects,
-                        (obj_id, cityobject['type'], hilbert_index, parents, children, json.dumps(attributes),
-                         json.dumps(vertices),
-                         json.dumps(cityobject)))
+        bbox2d = bbox2ds[obj_index]
+        _test = bbox2d[3]
+        insert_cityobjects = """
+        INSERT INTO {}.city_object (obj_id, type, bbox, parents, children, attributes, vertices, object, metadata_id)
+        VALUES (%s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}),%s, %s, %s, %s,%s, currval('metadata_id_seq'))
+        """.format(schema_name, bbox2d[0], bbox2d[1], bbox2d[2], bbox2d[3], geo_crs)
+        cur.execute(insert_cityobjects,
+                    (obj_id, cityobject['type'], parents, children, json.dumps(attributes),
+                     json.dumps(vertices),
+                     json.dumps(cityobject)))
 
         # todo: or center?
 
@@ -350,30 +372,16 @@ def insert_cityjson(file_name, schema_name):
 
                 else:
                     print('unknown geometry type')
-    # UPDATE TILE_ID of multipart building
-    update_multipart_buildings = """
-        SET search_path TO {};
-
-        UPDATE city_object SET tile_id = tile_value.value
-        FROM
-        (SELECT parent_id,avg(tile_id) ::numeric::integer as value
-        FROM city_object, (SELECT children_id,obj_id as parent_id
-        FROM (city_object AS c JOIN metadata AS m ON c.metadata_id=m.id), unnest(children) AS children_id
-        WHERE name=%s
-        ORDER BY tile_id) AS children
-        WHERE obj_id = children_id
-        GROUP BY parent_id) AS tile_value;""".format(schema_name)
-    cur.execute(update_multipart_buildings, [file_name])
-    conn.commit()
 
     print("""The insertion of "{}" in schema "{}" is done""".format(file_name, schema_name))
 
 
-insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
+#
+#
+# insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
 insert_cityjson('denhaag', DEFAULT_SCHEMA)
-insert_cityjson('delft', DEFAULT_SCHEMA)
-insert_cityjson('vienna', DEFAULT_SCHEMA)
-insert_cityjson('montreal', DEFAULT_SCHEMA)
-insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
-insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
-
+# insert_cityjson('delft', DEFAULT_SCHEMA)
+# insert_cityjson('vienna', DEFAULT_SCHEMA)
+# insert_cityjson('montreal', DEFAULT_SCHEMA)
+# insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
+# insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)

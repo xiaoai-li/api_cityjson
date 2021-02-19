@@ -17,7 +17,8 @@ TOPLEVEL = ('Building',
             'TransportSquare',
             'Tunnel',
             'WaterBody')
-
+DEFAULT_DB = 'cityjson'
+DEFAULT_SCHEMA = 'addcolumns'
 
 def update_geom_indices(a, offset):
     for i, each in enumerate(a):
@@ -37,33 +38,20 @@ def add_cityobject(cityjson, id, object, vertices):
         update_geom_indices(g["boundaries"], offset)
 
 
-def query_items(file_name=None, schema_name='addcolumns', limit=10, offset=0, is_tmp=False):
+def query_items(file_name=None, schema_name=DEFAULT_SCHEMA, limit=10, offset=0):
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()  # Open a cursor to perform database operations
-    if not is_tmp:
-        query_origin = """
-            SET search_path to {}, public;
-            
-            -- original query
-            WITH origin AS (
-            SELECT obj_id, c.metadata_id, c.object, vertices,version,parents,children
-            FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
-            WHERE name=%s
-            ORDER BY tile_id
-            LIMIT {} OFFSET {}),
-            """.format(schema_name, limit, offset)
-    else:
-        query_origin = """
-            SET search_path to {}, public;
 
-            -- original query
-            WITH origin AS (
-            SELECT obj_id, c.metadata_id, c.object, vertices,version,parents,children
-            FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
-			WHERE c.id in (SELECT unnest(cityobjects) FROM metadata WHERE name =%s)
-            ORDER BY tile_id
-            LIMIT {} OFFSET {}),
-            """.format(schema_name, limit, offset)
+    query_origin = """
+        SET search_path to {}, public;
+        
+        -- original query
+        WITH origin AS (
+        SELECT obj_id, c.metadata_id, c.object, vertices,version,parents,children
+        FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
+        WHERE name=%s
+        limit {} offset {}),
+        """.format(schema_name,limit, offset)
 
     query_cityobjects = """
         {}
@@ -110,41 +98,15 @@ def query_items(file_name=None, schema_name='addcolumns', limit=10, offset=0, is
     return cityjson
 
 
-def filter_col_bbox(file_name=None, schema_name='addcolumns', bbox=None, epsg=None):
+def filter_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA, bbox=None, epsg=None):
     print(bbox, epsg)
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()  # Open a cursor to perform database operations
-    delete_tmp = """
-        SET search_path TO {}, public; 
-        DELETE FROM metadata WHERE cityobjects is not null AND timestamp < NOW() - INTERVAL '30 minute';
-        """.format(schema_name)
-    cur.execute(delete_tmp)
-    conn.commit()
-
-    query_version = """    
-        SELECT version,referencesystem
-        FROM metadata
-        WHERE name=%s """
-    cur.execute(query_version, [file_name])
-    results = cur.fetchall()[0]
-    version = results[0]
-    ref_crs = results[1]
-    geo_crs = 0
 
     if not epsg:
-        query_origin = """
-            SET search_path to {}, public;
+        pass
 
-            -- original query
-            WITH origin AS (
-            SELECT c.id,parents,children
-            FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
-            WHERE name=%s AND 
-            (c.bbox&&ST_Envelope('LINESTRING({} {}, {} {})'::geometry))
-            ORDER BY tile_id),
-            """.format(schema_name, bbox[0], bbox[1], bbox[2], bbox[3])
     else:
-        geo_crs = epsg
         query_origin = """
             SET search_path to {}, public;
 
@@ -153,8 +115,7 @@ def filter_col_bbox(file_name=None, schema_name='addcolumns', bbox=None, epsg=No
             SELECT c.id,parents,children
             FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
             WHERE name=%s AND 
-            (st_transform(c.bbox, {})&&ST_Envelope('SRID={};LINESTRING({} {}, {} {} )'::geometry))
-            ORDER BY tile_id),
+            (st_transform(c.bbox, {})&&ST_Envelope('SRID={};LINESTRING({} {}, {} {} )'::geometry))),
             """.format(schema_name, epsg, epsg, bbox[0], bbox[1], bbox[2], bbox[3])
 
     query_cityobjects = """
@@ -187,35 +148,17 @@ def filter_col_bbox(file_name=None, schema_name='addcolumns', bbox=None, epsg=No
     cur.execute(query_cityobjects, [file_name])
     object_cityobjects = cur.fetchall()
 
-    # todo: numpy
-    cityobjects = []
-    for queried_cityobject in object_cityobjects:
-        # todo: add versions
-        cityobjects.append(queried_cityobject[0])
 
-    insert_metadata = """
-        INSERT INTO metadata 
-        (name, version,cityobjects, bbox,referencesystem) 
-        VALUES (concat(%s::text,'_filtered_',CURRVAL('metadata_id_seq')::text), %s, %s,st_transform(ST_MakeEnvelope({}, {}, {}, {}, {}), {}),%s)
-        """.format(bbox[0], bbox[1], bbox[2], bbox[3], geo_crs, ref_crs)
-    cur.execute(insert_metadata, (file_name, version, cityobjects, ref_crs))
-    conn.commit()
-
-    query_name = """ SELECT name FROM metadata where id=CURRVAL('metadata_id_seq')"""
-    cur.execute(query_name)
-    name = cur.fetchall()[0][0]
     threaded_postgreSQL_pool.putconn(conn)
-    return name
+    return
 
 
-def query_collections(schema_name, with_tmps=False):
+def query_collections(schema_name=DEFAULT_SCHEMA):
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()  # Open a cursor to perform database operations
     collections = []
-    if not with_tmps:
-        query_metadata = """SELECT name,datasetTitle FROM {}.metadata WHERE cityobjects is null""".format(schema_name)
-    else:
-        query_metadata = """SELECT name,datasetTitle FROM {}.metadata""".format(schema_name)
+
+    query_metadata = """SELECT name,datasetTitle FROM {}.metadata""".format(schema_name)
 
     cur.execute(query_metadata)
     object_metadata = cur.fetchall()
@@ -226,10 +169,9 @@ def query_collections(schema_name, with_tmps=False):
     return collections
 
 
-def query_feature(file_name=None, schema_name='addcolumns', feature_id=None):
+def query_feature(file_name=None, schema_name=DEFAULT_SCHEMA, feature_id=None):
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()  # Open a cursor to perform database operations
-    file_name = file_name.partition('_filtered_')[0]
 
     query_origin = """
             SET search_path to {}, public;
@@ -286,7 +228,7 @@ def query_feature(file_name=None, schema_name='addcolumns', feature_id=None):
     return cityjson
 
 
-def query_col_bbox(file_name=None, schema_name='addcolumns'):
+def query_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA):
     try:
         conn = threaded_postgreSQL_pool.getconn()
         cur = conn.cursor()  # Open a cursor to perform database operations
@@ -339,7 +281,7 @@ def query_col_bbox(file_name=None, schema_name='addcolumns'):
         return
 
 
-def query_cols_bbox(schema_name='addcolumns'):
+def query_cols_bbox(schema_name=DEFAULT_SCHEMA):
     try:
         conn = threaded_postgreSQL_pool.getconn()
         cur = conn.cursor()  # Open a cursor to perform database operations
@@ -375,11 +317,11 @@ try:
          password="1234",
          host="127.0.0.1",
          port="5432",
-         database="cityjson")
+         database=DEFAULT_DB)
     if (threaded_postgreSQL_pool):
         print("Connection pool created successfully using ThreadedConnectionPool")
-        # query_items(file_name='3-20-DELFSHAVEN_filtered_10', schema_name='addcolumns', limit=10, offset=0, is_tmp=True)
-        # filter_col_bbox(file_name='denhaag', bbox=[4.26787, 52.10574, 4.26954, 52.10669], epsg=4326)
+        # query_items(file_name='3-20-DELFSHAVEN_filtered_10', schema_name='addcolumns')
+        filter_col_bbox(file_name='denhaag', bbox=[4.26787, 52.10574, 4.26954, 52.10669], epsg=4326)
         # Get String after substring occurrence
 
 
