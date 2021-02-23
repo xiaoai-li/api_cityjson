@@ -130,14 +130,7 @@
 
 <script>
 var epsg={{ crs|int }}
-if (epsg==0)
-{
-    $( "#epsg" ).prop( "disabled", true );
-    $("#bounds_original").text('Bounding box (CRS is unkonwn)');
-    $("#transformed_bounds").text('');
 
-
-}
 $("#bbox").click(function(){
 var minX=$('#minX').val();
 var minY=$('#minY').val();

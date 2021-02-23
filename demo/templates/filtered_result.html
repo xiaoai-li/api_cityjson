@@ -1,0 +1,110 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<style>
+  .h2{
+    height:80px;
+  }
+  .h3{
+    height:80px;
+  }
+  .section{
+    height: 80px;
+  }
+.container{
+  height: 100vh;
+  overflow: hidden;
+}
+.row {
+  height: calc(100% - 320px);
+  position: relative;
+}
+.column {
+  position: relative;
+  float: left;
+  width: 50%;
+  height: 100%;
+}
+#left {
+    float: left;
+    width: 50%;
+    overflow: auto;
+}
+#right {
+    float: left;
+    width: 50%;
+}
+
+/* Clear floats after the columns */
+.row:after {
+  height: 100%;
+  content: "";
+  display: table;
+  clear: both;
+}
+.footer{
+  height: 80px;
+}
+
+
+
+
+</style>
+<div class="section bg-gray">
+    <ul class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('root') }}">/ home</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('collections') }}">collections</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('collections') }}{{ datasetname }}">{{ datasetname }}</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('collections') }}{{ datasetname }}/items/">Items</a>
+        </li>
+    </ul>
+</div>
+
+<div class="row">
+    <div class="column" id="left">
+        <div class="toast toast-warning">
+            <button class="btn btn-clear float-right"></button>
+            Tweak the query with eg '../items/?limit=20&offset=10' to see more features
+        </div>
+
+        <h2>{{ datasetname }}</h2>
+        <table class="table table-striped table-hover">
+            <tr>
+                <th>id</th>
+                <th>type</th>
+            </tr>
+
+            {% for feature in rows %}
+            <tr>
+                <th>main ID</th>
+                <th>{{feature['id']}}</th>
+            </tr>
+            {% for key, value in feature["CityObjects"].items() %}
+            <tr>
+                <td><a href="{{ request.path }}/items/{{ key }}">{{ key }}</a></td>
+                <td>{{ value['type'] }}</td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+
+
+        </table>
+
+    </div>
+
+    <div class="column" id="right">
+        {% include 'visualise.html' %}
+    </div>
+
+</div>
+
+
+{% endblock %}
+

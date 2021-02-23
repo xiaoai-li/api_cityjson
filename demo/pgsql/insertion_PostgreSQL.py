@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 import os
 import sys
 
@@ -133,13 +134,11 @@ def insert_cityjson(file_name, schema_name):
             metadata[key] = data['metadata'][key]
 
     ref_system = None  # If no SRID is specified the unknown spatial reference system (SRID 0) is used.
-    geo_crs = 0
     data_title = None
 
     if 'metadata' in data.keys():
         if 'referenceSystem' in data['metadata']:
             ref_system = int(data['metadata']['referenceSystem'].split("::")[-1])
-            geo_crs = ref_system
         if 'datasetTitle' in data['metadata']:
             data_title = data['metadata']['datasetTitle']
 
@@ -172,10 +171,35 @@ def insert_cityjson(file_name, schema_name):
         arr_vertices.extend(vertices)
     bbox2ds = np.array(bbox2ds)
     centroids = np.array(centroids)
-
+    # prepare tiles
     pts_xy = np.array(arr_vertices).T[:2]
     min_xy = pts_xy.min(axis=1)
     max_xy = pts_xy.max(axis=1)
+
+    # make sure proportional
+    num_cityobjects = len(data['CityObjects'])
+    r = math.log10(num_cityobjects)  # todo: imprpve the proportion
+    rate = 5 ** (r - 1)
+
+    len_x = max_xy[0] - min_xy[0]
+    len_y = max_xy[1] - min_xy[1]
+    step_x = len_x / rate
+    step_y = len_y / rate
+    num_x = int(len_x / step_x) + 1
+    num_y = int(len_y / step_y) + 1
+
+    grid_x = np.arange(int(min_xy[0]), int(min_xy[0]) + rate * step_x, step_x)
+    grid_y = np.arange(int(min_xy[1]), int(min_xy[1]) + rate * step_y, step_y)
+    grid_xy = []
+    for x in grid_x:
+        for y in grid_y:
+            grid_xy.append([x, y])
+    grid_xy = np.array(grid_xy)
+    print(len(grid_xy))
+    tree = cKDTree(grid_xy, leafsize=20)
+    hilbert_indices = create_hilbert(num_x, num_y)
+    _, ids = tree.query(centroids, k=1)
+    tile_ids = np.array(hilbert_indices[ids])
 
     # update parents of multi-part buildings
     for parent_id in parent_ids:
@@ -186,26 +210,37 @@ def insert_cityjson(file_name, schema_name):
                          children_bbox2d[3, :].max()]
         parent_index = obj_ids.index(parent_id)
         bbox2ds[parent_index] = parent_bbox2d
-        children_centroids = centroids[children_indices].T
-        parent_centroid = [np.median(children_centroids[0, :]), np.median(children_centroids[1, :])]
-        centroids[parent_index] = parent_centroid
+        children_tile_ids = tile_ids[children_indices]
+        parent_tile_id = int(np.median(children_tile_ids))
+        tile_ids[parent_index] = parent_tile_id
+        tile_ids[children_indices] = parent_tile_id
 
     print('tiles are indexed')
 
-    insert_metadata = """
-    SET search_path TO {}, public; 
-    INSERT INTO {}.metadata 
-    (name, version, referenceSystem, bbox, datasetTitle, object) 
-    VALUES ( %s, %s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s)""" \
-        .format(schema_name, schema_name, min_xy[0], min_xy[1], max_xy[0], max_xy[1], geo_crs)
-    cur.execute(insert_metadata,
-                (file_name, data['version'], ref_system, data_title, json.dumps(data['metadata'])))
+    if ref_system:
+        insert_metadata = """
+        SET search_path TO {}, public; 
+        INSERT INTO {}.metadata 
+        (name, version, referenceSystem, bbox, datasetTitle, object) 
+        VALUES ( %s, %s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s)""" \
+            .format(schema_name, schema_name, min_xy[0], min_xy[1], max_xy[0], max_xy[1], ref_system)
+        cur.execute(insert_metadata,
+                    (file_name, data['version'], ref_system, data_title, json.dumps(data['metadata'])))
+    else:
+        insert_metadata = """
+        SET search_path TO {}, public; 
+        INSERT INTO {}.metadata 
+        (name, version, datasetTitle, object) 
+        VALUES ( %s, %s, %s, %s)""" \
+            .format(schema_name, schema_name, )
+        cur.execute(insert_metadata,
+                    (file_name, data['version'], data_title, json.dumps(data['metadata'])))
+
     conn.commit()
 
     # store city_object table
     step_index = range(int(count_cityobjects * 2 / 10), count_cityobjects, int(count_cityobjects / 10))
-    tree = cKDTree(centroids, leafsize=1)
-    insert_order = np.argsort(tree.indices)
+    insert_order = np.argsort(tile_ids)
 
     for step_id, obj_index in enumerate(insert_order):
         obj_id = obj_ids[obj_index]
@@ -227,18 +262,27 @@ def insert_cityjson(file_name, schema_name):
             attributes = cityobject['attributes']
 
         bbox2d = bbox2ds[obj_index]
-        _test = bbox2d[3]
-        insert_cityobjects = """
-        INSERT INTO {}.city_object (obj_id, type, bbox, parents, children, attributes, vertices, object, metadata_id)
-        VALUES (%s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}),%s, %s, %s, %s,%s, currval('metadata_id_seq'))
-        """.format(schema_name, bbox2d[0], bbox2d[1], bbox2d[2], bbox2d[3], geo_crs)
-        cur.execute(insert_cityobjects,
-                    (obj_id, cityobject['type'], parents, children, json.dumps(attributes),
-                     json.dumps(vertices),
-                     json.dumps(cityobject)))
+
+        if ref_system:
+            insert_cityobjects = """
+            INSERT INTO {}.city_object (obj_id, type, bbox, parents, children, attributes, vertices, object, metadata_id)
+            VALUES (%s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}),%s, %s, %s, %s,%s, currval('metadata_id_seq'))
+            """.format(schema_name, bbox2d[0], bbox2d[1], bbox2d[2], bbox2d[3], ref_system)
+            cur.execute(insert_cityobjects,
+                        (obj_id, cityobject['type'], parents, children, json.dumps(attributes),
+                         json.dumps(vertices),
+                         json.dumps(cityobject)))
+        else:
+            insert_cityobjects = """
+            INSERT INTO {}.city_object (obj_id, type, parents, children, attributes, vertices, object, metadata_id)
+            VALUES (%s, %s ,%s, %s, %s, %s,%s, currval('metadata_id_seq'))
+            """.format(schema_name)
+            cur.execute(insert_cityobjects,
+                        (obj_id, cityobject['type'], parents, children, json.dumps(attributes),
+                         json.dumps(vertices),
+                         json.dumps(cityobject)))
 
         # todo: or center?
-
         conn.commit()
 
         #  geometry
@@ -257,7 +301,6 @@ def insert_cityjson(file_name, schema_name):
                 semantics_surfaces = geometry['semantics']['surfaces']
                 if geom_type == 'MultiSurface' or geom_type == 'CompositeSurface':
                     for surface_index, surface in enumerate(boundaries):
-                        polygon = convert_surface_to_polygon(surface, geo_crs)
                         surface_type = None
                         surface_attributes = None
                         semantics_value = geometry['semantics']['values'][surface_index]
@@ -267,10 +310,18 @@ def insert_cityjson(file_name, schema_name):
                             surface_type = semantics_surface['type']
                             surface_attributes = copy.deepcopy(semantics_surface)
                             del surface_attributes['type']
-                        insert_geometry = """
-                        INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
-                        VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
-                        cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                        if ref_system:
+                            polygon = convert_surface_to_polygon(surface, ref_system)
+                            insert_geometry = """
+                            INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
+                            VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                            cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                        else:
+                            insert_geometry = """
+                            INSERT INTO {}.surfaces (type, attributes, geometries_id)
+                            VALUES (%s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                            cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes)))
+
                         conn.commit()
 
                 elif geom_type == 'Solid':
@@ -279,17 +330,23 @@ def insert_cityjson(file_name, schema_name):
                         for surface_index, surface in enumerate(shell):
                             surface_type = None
                             surface_attributes = None
-                            polygon = convert_surface_to_polygon(surface, geo_crs)
                             semantics_value = geometry['semantics']['values'][shell_index][surface_index]
                             if semantics_value:
                                 semantics_surface = semantics_surfaces[semantics_value]
                                 surface_type = semantics_surface['type']
                                 del semantics_surface['type']
                                 surface_attributes = semantics_surface
-                            insert_geometry = """
+                            if ref_system:
+                                polygon = convert_surface_to_polygon(surface, ref_system)
+                                insert_geometry = """
                                 INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
                                 VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
-                            cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                                cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                            else:
+                                insert_geometry = """
+                                INSERT INTO {}.surfaces (type, attributes, geometries_id)
+                                VALUES (%s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                                cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes)))
                             conn.commit()
 
                 elif geom_type == 'MultiSolid' or geom_type == 'CompositeSolid':
@@ -298,7 +355,6 @@ def insert_cityjson(file_name, schema_name):
                             for surface_index, surface in enumerate(shell):
                                 surface_type = None
                                 surface_attributes = None
-                                polygon = convert_surface_to_polygon(surface, geo_crs)
                                 semantics_value = geometry['semantics']['values'][solid_index][shell_index][
                                     surface_index]
                                 if semantics_value:
@@ -306,42 +362,69 @@ def insert_cityjson(file_name, schema_name):
                                     surface_type = semantics_surface['type']
                                     del semantics_surface['type']
                                     surface_attributes = semantics_surface
-                                insert_geometry = """
-                                INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
-                                VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
-                                cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                                if ref_system:
+                                    polygon = convert_surface_to_polygon(surface, ref_system)
+                                    insert_geometry = """
+                                    INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
+                                    VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                                    cur.execute(insert_geometry,
+                                                (surface_type, json.dumps(surface_attributes), polygon))
+                                else:
+                                    insert_geometry = """
+                                    INSERT INTO {}.surfaces (type, attributes, geometries_id)
+                                    VALUES (%s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                                    cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes)))
                                 conn.commit()
                 else:
                     print('unknown geometry type')
             else:
                 if geom_type == 'MultiSurface' or geom_type == 'CompositeSurface':
                     for surface_index, surface in enumerate(boundaries):
-                        polygon = convert_surface_to_polygon(surface, geo_crs)
-                        insert_geometry = """
-                        INSERT INTO {}.surfaces (geometry, geometries_id)
-                        VALUES (%s, currval('geometries_id_seq'))""".format(schema_name)
-                        cur.execute(insert_geometry, (polygon,))
+                        if ref_system:
+                            polygon = convert_surface_to_polygon(surface, ref_system)
+                            insert_geometry = """
+                            INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
+                            VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                            cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                        else:
+                            insert_geometry = """
+                            INSERT INTO {}.surfaces (type, attributes, geometries_id)
+                            VALUES (%s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                            cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes)))
                         conn.commit()
 
                 elif geom_type == 'Solid':
                     for shell_index, shell in enumerate(boundaries):
                         for surface_index, surface in enumerate(shell):
-                            polygon = convert_surface_to_polygon(surface, geo_crs)
-                            insert_geometry = """
-                                INSERT INTO {}.surfaces (geometry, geometries_id)
-                                VALUES (%s, currval('geometries_id_seq'))""".format(schema_name)
-                            cur.execute(insert_geometry, (polygon,))
+                            if ref_system:
+                                polygon = convert_surface_to_polygon(surface, ref_system)
+                                insert_geometry = """
+                                INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
+                                VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                                cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                            else:
+                                insert_geometry = """
+                                INSERT INTO {}.surfaces (type, attributes, geometries_id)
+                                VALUES (%s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                                cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes)))
                             conn.commit()
 
                 elif geom_type == 'MultiSolid' or geom_type == 'CompositeSolid':
                     for solid_index, solid in enumerate(boundaries):
                         for shell_index, shell in enumerate(solid):
                             for surface_index, surface in enumerate(shell):
-                                polygon = convert_surface_to_polygon(surface, geo_crs)
-                                insert_geometry = """
-                                INSERT INTO {}.surfaces (geometry, geometries_id)
-                                VALUES (%s, currval('geometries_id_seq'))""".format(schema_name)
-                                cur.execute(insert_geometry, (polygon,))
+                                if ref_system:
+                                    polygon = convert_surface_to_polygon(surface, ref_system)
+                                    insert_geometry = """
+                                    INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
+                                    VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                                    cur.execute(insert_geometry,
+                                                (surface_type, json.dumps(surface_attributes), polygon))
+                                else:
+                                    insert_geometry = """
+                                    INSERT INTO {}.surfaces (type, attributes, geometries_id)
+                                    VALUES (%s, %s, currval('geometries_id_seq'))""".format(schema_name)
+                                    cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes)))
                                 conn.commit()
 
                 else:
@@ -353,7 +436,7 @@ def insert_cityjson(file_name, schema_name):
 #
 #
 # insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
-# insert_cityjson('denhaag', DEFAULT_SCHEMA)
+insert_cityjson('denhaag', DEFAULT_SCHEMA)
 # insert_cityjson('delft', DEFAULT_SCHEMA)
 # insert_cityjson('vienna', DEFAULT_SCHEMA)
 # insert_cityjson('montreal', DEFAULT_SCHEMA)

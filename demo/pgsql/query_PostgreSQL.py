@@ -1,7 +1,10 @@
 import json
 
 import numpy as np
+import ujson
 from cjio.cityjson import CityJSON
+from time import sleep
+
 
 TOPLEVEL = ('Building',
             'Bridge',
@@ -19,6 +22,35 @@ TOPLEVEL = ('Building',
             'WaterBody')
 DEFAULT_DB = 'cityjson'
 DEFAULT_SCHEMA = 'addcolumns'
+FETCH_SIZE = 1000
+
+TOPLEVEL = ('Building',
+            'Bridge',
+            'CityObjectGroup',
+            'CityFurniture',
+            'GenericCityObject',
+            'LandUse',
+            'PlantCover',
+            'Railway',
+            'Road',
+            'SolitaryVegetationObject',
+            'TINRelief',
+            'TransportSquare',
+            'Tunnel',
+            'WaterBody')
+
+REALATIVES = """
+            -- get children of original query
+            children AS(
+            SELECT unnest(parents) as main_id, obj_id, object,vertices
+            FROM city_object
+            WHERE obj_id IN (SELECT unnest(children) FROM origin))
+            
+            SELECT main_id, obj_id, object,vertices FROM origin
+            UNION SELECT * FROM children
+            ORDER BY main_id
+            """
+
 
 def update_geom_indices(a, offset):
     for i, each in enumerate(a):
@@ -44,42 +76,16 @@ def query_items(file_name=None, schema_name=DEFAULT_SCHEMA, limit=10, offset=0):
 
     query_origin = """
         SET search_path to {}, public;
-        
+                
         -- original query
         WITH origin AS (
-        SELECT obj_id, c.metadata_id, c.object, vertices,version,parents,children
+        SELECT obj_id as main_id, obj_id, c.object, vertices,children
         FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
-        WHERE name=%s
+        WHERE name=%s and type In {}
         limit {} offset {}),
-        """.format(schema_name,limit, offset)
+        """.format(schema_name, TOPLEVEL, limit, offset)
 
-    query_cityobjects = """
-        {}
-
-        -- get parents of original query
-        parents AS(
-        SELECT obj_id, object,vertices,children
-        FROM city_object
-        WHERE obj_id IN (SELECT unnest(parents) FROM origin)),
-
-        -- get children of original query
-        children AS(
-        SELECT obj_id, object,vertices
-        FROM city_object
-        WHERE obj_id IN (SELECT unnest(children) FROM origin)),
-
-        -- get siblings of original query
-        siblings AS(
-        SELECT obj_id, object,vertices
-        FROM city_object
-        WHERE obj_id IN (SELECT unnest(children) FROM parents))
-
-        SELECT obj_id, object,vertices FROM origin
-        UNION
-        SELECT obj_id, object,vertices FROM parents
-        UNION SELECT * FROM children
-        UNION SELECT * FROM siblings
-        """.format(query_origin)
+    query_cityobjects = query_origin + REALATIVES
     cur.execute(query_cityobjects, [file_name])
 
     object_cityobjects = cur.fetchall()
@@ -89,9 +95,9 @@ def query_items(file_name=None, schema_name=DEFAULT_SCHEMA, limit=10, offset=0):
 
     for queried_cityobject in object_cityobjects:
         # todo: add versions
-        id = queried_cityobject[0]
-        object = queried_cityobject[1]
-        vertices = queried_cityobject[2]
+        id = queried_cityobject[1]
+        object = queried_cityobject[2]
+        vertices = queried_cityobject[3]
         add_cityobject(cityjson, id, object, vertices)
 
     cityjson.remove_duplicate_vertices()
@@ -99,58 +105,58 @@ def query_items(file_name=None, schema_name=DEFAULT_SCHEMA, limit=10, offset=0):
 
 
 def filter_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA, bbox=None, epsg=None):
-    print(bbox, epsg)
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()  # Open a cursor to perform database operations
 
-    if not epsg:
-        pass
+    query_origin = """
+        SET search_path to {}, public;
 
-    else:
-        query_origin = """
-            SET search_path to {}, public;
+        -- original query
+        WITH origin AS (
+        SELECT obj_id as main_id, obj_id, c.object, vertices,children
+        FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
+        WHERE name=%s AND type IN {} AND
+        (st_transform(c.bbox, {})&&ST_Envelope('SRID={};LINESTRING({} {}, {} {} )'::geometry))),
+        """.format(schema_name, TOPLEVEL, epsg, epsg, bbox[0], bbox[1], bbox[2], bbox[3])
 
-            -- original query
-            WITH origin AS (
-            SELECT c.id,parents,children
-            FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
-            WHERE name=%s AND 
-            (st_transform(c.bbox, {})&&ST_Envelope('SRID={};LINESTRING({} {}, {} {} )'::geometry))),
-            """.format(schema_name, epsg, epsg, bbox[0], bbox[1], bbox[2], bbox[3])
+    query_cityobjects = query_origin + REALATIVES
 
-    query_cityobjects = """
-        {}
+    def generator():
+        try:
+            cur.execute(query_cityobjects, [file_name])
+            yield from __dumps(cur)
+        finally:
+            threaded_postgreSQL_pool.putconn(conn)
 
-        -- get parents of original query
-        parents AS(
-        SELECT id,children
-        FROM city_object
-        WHERE obj_id IN (SELECT unnest(parents) FROM origin)),
-
-        -- get children of original query
-        children AS(
-        SELECT id
-        FROM city_object
-        WHERE obj_id IN (SELECT unnest(children) FROM origin)),
-
-        -- get siblings of original query
-        siblings AS(
-        SELECT id
-        FROM city_object
-        WHERE obj_id IN (SELECT unnest(children) FROM parents))
-
-        SELECT id FROM origin
-        UNION
-        SELECT id FROM parents
-        UNION SELECT * FROM children
-        UNION SELECT * FROM siblings
-        """.format(query_origin)
-    cur.execute(query_cityobjects, [file_name])
-    object_cityobjects = cur.fetchall()
+    return generator()
 
 
-    threaded_postgreSQL_pool.putconn(conn)
-    return
+def __dumps(cursor):
+    while True:
+        rows = cursor.fetchmany(FETCH_SIZE)
+        if not rows:
+            break
+        main_id = rows[0][0]
+        print(main_id)
+        cityjson = CityJSON()
+        for row in rows:
+            if row[0] != main_id:
+                cityjson.remove_duplicate_vertices()
+                cj_feature = {
+                    "type": "CityJSONFeature",
+                    "id": main_id,
+                    "CityObjects": cityjson.j['CityObjects'],
+                    "vertices": cityjson.j['vertices']
+                }
+                yield cj_feature
+                sleep(0.5)
+
+                cityjson = CityJSON()
+                main_id = row[0]
+            id = row[1]
+            object = row[2]
+            vertices = row[3]
+            add_cityobject(cityjson, id, object, vertices)
 
 
 def query_collections(schema_name=DEFAULT_SCHEMA):
@@ -178,38 +184,12 @@ def query_feature(file_name=None, schema_name=DEFAULT_SCHEMA, feature_id=None):
 
             -- original query
             WITH origin AS (
-            SELECT obj_id, c.metadata_id, c.object, vertices,version,parents,children
+            SELECT obj_id as main_id, obj_id, c.object, vertices,children
             FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
             WHERE name=%s and obj_id=%s),
             """.format(schema_name)
 
-    query_cityobjects = """
-            {}
-
-            -- get parents of original query
-            parents AS(
-            SELECT obj_id, object,vertices,children
-            FROM city_object
-            WHERE obj_id IN (SELECT unnest(parents) FROM origin)),
-
-            -- get children of original query
-            children AS(
-            SELECT obj_id, object,vertices
-            FROM city_object
-            WHERE obj_id IN (SELECT unnest(children) FROM origin)),
-
-            -- get siblings of original query
-            siblings AS(
-            SELECT obj_id, object,vertices
-            FROM city_object
-            WHERE obj_id IN (SELECT unnest(children) FROM parents))
-
-            SELECT obj_id, object,vertices FROM origin
-            UNION
-            SELECT obj_id, object,vertices FROM parents
-            UNION SELECT * FROM children
-            UNION SELECT * FROM siblings
-            """.format(query_origin)
+    query_cityobjects = query_origin + REALATIVES
     cur.execute(query_cityobjects, [file_name, feature_id])
 
     object_cityobjects = cur.fetchall()
@@ -219,9 +199,9 @@ def query_feature(file_name=None, schema_name=DEFAULT_SCHEMA, feature_id=None):
 
     for queried_cityobject in object_cityobjects:
         # todo: add versions
-        id = queried_cityobject[0]
-        object = queried_cityobject[1]
-        vertices = queried_cityobject[2]
+        id = queried_cityobject[1]
+        object = queried_cityobject[2]
+        vertices = queried_cityobject[3]
         add_cityobject(cityjson, id, object, vertices)
 
     cityjson.remove_duplicate_vertices()
@@ -321,8 +301,8 @@ try:
     if (threaded_postgreSQL_pool):
         print("Connection pool created successfully using ThreadedConnectionPool")
         # query_items(file_name='3-20-DELFSHAVEN_filtered_10', schema_name='addcolumns')
-        filter_col_bbox(file_name='denhaag', bbox=[4.26787, 52.10574, 4.26954, 52.10669], epsg=4326)
-        # Get String after substring occurrence
+
+            # Get String after substring occurrence
 
 
 
