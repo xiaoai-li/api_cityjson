@@ -1,10 +1,14 @@
 import json
 import os
 
+import flask
+import pytest
 from cjio import cityjson
 from flask import Flask, render_template, request, Response, stream_with_context
 from pgsql.query_PostgreSQL import query_collections, query_items, query_feature, query_col_bbox, query_cols_bbox, \
-    filter_col_bbox
+    filter_col_bbox, filter_cols_bbox
+
+
 
 app = Flask(__name__)
 
@@ -32,53 +36,69 @@ def root():
 
 @app.route('/collections/', methods=['GET'])  # -- html/json
 def collections():
-    bboxes = query_cols_bbox()
-    re = request.args.get('f', None)
-    if re == 'html' or re is None:
-        return render_template("collections.html", datasets=jindex['collections'], bounds=bboxes, type=0)
-    elif re == 'json':
-        return json.dumps(jindex)  # todo?
-    else:
-        return JINVALIDFORMAT
+    # -- bbox
+    re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
 
-        # @app.route('/collections/<dataset>/', methods=['GET'])  # -- html/json
-        # def collection(dataset):
-        #     # -- bbox
-        #     re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
-        #     re_epsg = request.args.get('epsg', None)
-        #
-        #     if re_bbox is not None:
-        #         r = re_bbox.split(',')
-        #         if len(r) != 4:
-        #             return JINVALIDFORMAT
-        #         try:
-        #             re_bbox = list(map(float, r))
-        #             filter_dataset = filter_col_bbox(file_name=dataset, bbox=re_bbox, epsg=re_epsg)
-        #             bbox_wgs84, bbox_original, epsg = query_col_bbox(filter_dataset)
-        #             ds = {"name": filter_dataset, "title": ''}
-        #             return render_template("filtered_result.html", dataset=ds, bounds=json.dumps(bbox_wgs84),
-        #                                    crs=epsg, bounds_original=bbox_original, type=1)
-        #         except:
-        #             return JINVALIDFORMAT
-        #     else:
-        #         bbox_wgs84, bbox_original, epsg = query_col_bbox(dataset)
-        #         re = request.args.get('f', None)
-        #         if re == 'html' or re is None:
-        #             collections = query_collections()
-        #             for each in collections:
-        #                 if each['name'] == dataset:
-        #                     return render_template("collection.html", dataset=each, bounds=json.dumps(bbox_wgs84),
-        #                                            crs=epsg, bounds_original=bbox_original, type=1)
-        #             return JINVALIDFORMAT
-        #         elif re == 'json':
-        #             p = PATHDATASETS + dataset + '.json'
-        #             if not os.path.isfile(p):
-        #                 return None
-        #             f = open(p)
-        #             cm = cityjson.reader(file=f, ignore_duplicate_keys=True)
-        #             return cm.j
-        #         else:
-        #             return JINVALIDFORMAT
+    if re_bbox is not None:
+        r = re_bbox.split(',')
+        if len(r) != 4:
+            return JINVALIDFORMAT
+        try:
+            re_bbox = list(map(float, r))
+            generator = stream_with_context(filter_cols_bbox(bbox=re_bbox))
+            dataset = "global_filtered"
+            return Response(stream_template('cols_filtered.html', rows=generator, datasetname=dataset))
+        except:
+            return JINVALIDFORMAT
+    else:
+        bboxes = query_cols_bbox()
+        re = request.args.get('f', None)
+        if re == 'html' or re is None:
+            return render_template("collections.html", datasets=jindex['collections'], bounds=bboxes, type=0)
+        elif re == 'json':
+            return json.dumps(jindex)  # todo?
+        else:
+            return JINVALIDFORMAT
+
+
+# @app.route('/collections/<dataset>/', methods=['GET'])  # -- html/json
+# def collection(dataset):
+#     # -- bbox
+#     re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
+#     re_epsg = request.args.get('epsg', None)
+#
+#     if re_bbox is not None:
+#         r = re_bbox.split(',')
+#         if len(r) != 4:
+#             return JINVALIDFORMAT
+#         try:
+#             re_bbox = list(map(float, r))
+#             filter_dataset = filter_col_bbox(file_name=dataset, bbox=re_bbox, epsg=re_epsg)
+#             bbox_wgs84, bbox_original, epsg = query_col_bbox(filter_dataset)
+#             ds = {"name": filter_dataset, "title": ''}
+#             return render_template("col_filtered.html", dataset=ds, bounds=json.dumps(bbox_wgs84),
+#                                    crs=epsg, bounds_original=bbox_original, type=1)
+#         except:
+#             return JINVALIDFORMAT
+#     else:
+#         bbox_wgs84, bbox_original, epsg = query_col_bbox(dataset)
+#         re = request.args.get('f', None)
+#         if re == 'html' or re is None:
+#             collections = query_collections()
+#             for each in collections:
+#                 if each['name'] == dataset:
+#                     return render_template("collection.html", dataset=each, bounds=json.dumps(bbox_wgs84),
+#                                            crs=epsg, bounds_original=bbox_original, type=1)
+#             return JINVALIDFORMAT
+#         elif re == 'json':
+#             p = PATHDATASETS + dataset + '.json'
+#             if not os.path.isfile(p):
+#                 return None
+#             f = open(p)
+#             cm = cityjson.reader(file=f, ignore_duplicate_keys=True)
+#             return cm.j
+#         else:
+#             return JINVALIDFORMAT
 
 
 def stream_template(template_name, **context):
@@ -102,9 +122,7 @@ def collection(dataset):
         try:
             re_bbox = list(map(float, r))
             generator = stream_with_context(filter_col_bbox(file_name=dataset, bbox=re_bbox, epsg=re_epsg))
-
-            return Response(stream_template('filtered_result.html', rows=generator, datasetname=dataset))
-
+            return Response(stream_template('col_filtered.html', rows=generator, datasetname=dataset))
 
         except:
             return JINVALIDFORMAT
@@ -149,17 +167,9 @@ def items(dataset):
 @app.route('/collections/<dataset>/items/<featureID>/', methods=['GET'])  # -- html/json
 def item(dataset, featureID):
     re = request.args.get('f', None)
-    if re == 'html' or re is None:
 
-        f = query_feature(file_name=dataset, feature_id=featureID).j
-        if 'metadata' in f:
-            del f['metadata']
-        if 'version' in f:
-            del f['version']
-        if 'extensions' in f:
-            del f['extensions']
-        f['type'] = 'CityJSONFeature'
-        f['id'] = featureID
+    if re == 'html' or re is None:
+        f = query_feature(file_name=dataset, feature_id=featureID)
         return render_template("item.html", jitem=f, datasetname=dataset)
     elif re == 'json':
         f = query_feature(file_name=dataset, feature_id=featureID).j
@@ -294,7 +304,7 @@ def collection_stream(dataset):
 #         cm2 = cm.get_subset_cotype(cotype=thecotype, exclude=False)
 #         return cm2.j
 
-#
+# #
 # if __name__ == '__main__':
 #     app.debug = True
 #     app.run()

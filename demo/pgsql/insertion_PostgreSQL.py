@@ -383,14 +383,14 @@ def insert_cityjson(file_name, schema_name):
                         if ref_system:
                             polygon = convert_surface_to_polygon(surface, ref_system)
                             insert_geometry = """
-                            INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
-                            VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
-                            cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                            INSERT INTO {}.surfaces (geometry, geometries_id)
+                            VALUES (%s,currval('geometries_id_seq'))""".format(schema_name)
+                            cur.execute(insert_geometry, (polygon,))
                         else:
                             insert_geometry = """
-                            INSERT INTO {}.surfaces (type, attributes, geometries_id)
-                            VALUES (%s, %s, currval('geometries_id_seq'))""".format(schema_name)
-                            cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes)))
+                            INSERT INTO {}.surfaces (geometries_id)
+                            VALUES (currval('geometries_id_seq'))""".format(schema_name)
+                            cur.execute(insert_geometry)
                         conn.commit()
 
                 elif geom_type == 'Solid':
@@ -399,14 +399,14 @@ def insert_cityjson(file_name, schema_name):
                             if ref_system:
                                 polygon = convert_surface_to_polygon(surface, ref_system)
                                 insert_geometry = """
-                                INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
-                                VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
-                                cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes), polygon))
+                                INSERT INTO {}.surfaces (geometry, geometries_id)
+                                VALUES (%s,currval('geometries_id_seq'))""".format(schema_name)
+                                cur.execute(insert_geometry, (polygon,))
                             else:
                                 insert_geometry = """
-                                INSERT INTO {}.surfaces (type, attributes, geometries_id)
-                                VALUES (%s, %s, currval('geometries_id_seq'))""".format(schema_name)
-                                cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes)))
+                                INSERT INTO {}.surfaces (geometries_id)
+                                VALUES (currval('geometries_id_seq'))""".format(schema_name)
+                                cur.execute(insert_geometry)
                             conn.commit()
 
                 elif geom_type == 'MultiSolid' or geom_type == 'CompositeSolid':
@@ -416,15 +416,14 @@ def insert_cityjson(file_name, schema_name):
                                 if ref_system:
                                     polygon = convert_surface_to_polygon(surface, ref_system)
                                     insert_geometry = """
-                                    INSERT INTO {}.surfaces (type, attributes, geometry, geometries_id)
-                                    VALUES (%s, %s, %s, currval('geometries_id_seq'))""".format(schema_name)
-                                    cur.execute(insert_geometry,
-                                                (surface_type, json.dumps(surface_attributes), polygon))
+                                    INSERT INTO {}.surfaces (geometry, geometries_id)
+                                    VALUES (%s,currval('geometries_id_seq'))""".format(schema_name)
+                                    cur.execute(insert_geometry, (polygon,))
                                 else:
                                     insert_geometry = """
-                                    INSERT INTO {}.surfaces (type, attributes, geometries_id)
-                                    VALUES (%s, %s, currval('geometries_id_seq'))""".format(schema_name)
-                                    cur.execute(insert_geometry, (surface_type, json.dumps(surface_attributes)))
+                                    INSERT INTO {}.surfaces (geometries_id)
+                                    VALUES (currval('geometries_id_seq'))""".format(schema_name)
+                                    cur.execute(insert_geometry)
                                 conn.commit()
 
                 else:
@@ -435,10 +434,10 @@ def insert_cityjson(file_name, schema_name):
 
 #
 #
-# insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
+insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
 insert_cityjson('denhaag', DEFAULT_SCHEMA)
-# insert_cityjson('delft', DEFAULT_SCHEMA)
-# insert_cityjson('vienna', DEFAULT_SCHEMA)
-# insert_cityjson('montreal', DEFAULT_SCHEMA)
-# insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
-# insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
+insert_cityjson('delft', DEFAULT_SCHEMA)
+insert_cityjson('vienna', DEFAULT_SCHEMA)
+insert_cityjson('montreal', DEFAULT_SCHEMA)
+insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
+insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)

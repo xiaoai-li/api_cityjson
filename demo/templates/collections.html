@@ -46,6 +46,7 @@
 }
 
 
+
 </style>
 <div class="section bg-gray">
     <ul class="breadcrumb">
@@ -83,7 +84,9 @@
                 <td>
                     <div class="columns col-oneline">
                         <input class="form-input" type="text" id="epsg" disabled="disabled" placeholder="EPSG: 4326">
-                        <button class="btn btn-primary">Confirm</button>
+                        <a id="bbox" href="{{ url_for('collections') }}">
+                            <button class="btn btn-primary">Confirm</button>
+                        </a>
 
                     </div>
 
@@ -110,5 +113,19 @@
     </div>
 </div>
 
+<script>
+
+$("#bbox").click(function(){
+var minX=$('#minX').val();
+var minY=$('#minY').val();
+var maxX=$('#maxX').val();
+var maxY=$('#maxY').val();
+
+this.href=this.href+'/?bbox='+minX+','+minY+','+maxX+','+maxY;
+console.log(this.href);
+})
+
+
+</script>
 
 {% endblock %}

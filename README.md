@@ -71,3 +71,4 @@ direct :(
 - set path and {}.metadata during insertion
 - integrate with cjio (remove ophan..))
 - problem  every time qury full relatives  leads to duplicate 
+- refer change to int type in db
