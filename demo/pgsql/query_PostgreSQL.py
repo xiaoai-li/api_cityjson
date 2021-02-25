@@ -301,7 +301,7 @@ def query_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA):
         query_bbox = """
                 SET search_path to {}, public;
 
-                SELECT st_asgeojson(st_transform(bbox, 4326)),st_asgeojson(bbox), referencesystem
+                SELECT st_asgeojson(st_transform(bbox, 4326)),st_asgeojson(bbox), referencesystem, meta_attr
                 FROM metadata
                 WHERE name=%s and referencesystem is not null
                 """.format(schema_name)
@@ -321,8 +321,8 @@ def query_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA):
             max_xy = pts_xy.max(axis=1)
             bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
             epsg = results[0][2]
-
-        return bbox_wgs84, bbox_original, epsg
+        meta_attr = results[0][3]
+        return bbox_wgs84, bbox_original, epsg, meta_attr
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
         return

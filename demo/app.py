@@ -159,14 +159,14 @@ def collection(dataset):
         except:
             return JINVALIDFORMAT
     else:
-        bbox_wgs84, bbox_original, epsg = query_col_bbox(dataset)
+        bbox_wgs84, bbox_original, epsg, meta_attr = query_col_bbox(dataset)
         re = request.args.get('f', None)
         if re == 'html' or re is None:
             collections = query_collections()
             for each in collections:
                 if each['name'] == dataset:
                     return render_template("collection.html", dataset=each, bounds=json.dumps(bbox_wgs84),
-                                           crs=epsg, bounds_original=bbox_original, type=1)
+                                           crs=epsg, bounds_original=bbox_original, type=1, meta_attr=meta_attr)
             return JINVALIDFORMAT
         elif re == 'json':
             p = PATHDATASETS + dataset + '.json'

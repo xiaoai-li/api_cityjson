@@ -242,6 +242,10 @@ def insert_cityjson(file_name, schema_name):
     step_index = range(int(count_cityobjects * 2 / 10), count_cityobjects, int(count_cityobjects / 10))
     insert_order = np.argsort(tile_ids)
 
+    # prepare metadata for attribute filtering
+    # meta_attr={"name":{"type": 'int', "enum":[]}}
+    meta_attr = {"type": []}
+
     for step_id, obj_index in enumerate(insert_order):
         obj_id = obj_ids[obj_index]
         if step_id in step_index:
@@ -261,6 +265,13 @@ def insert_cityjson(file_name, schema_name):
         if 'attributes' in cityobject.keys():
             attributes = cityobject['attributes']
 
+        for key in attributes:
+            if key in meta_attr.keys():
+                meta_attr[key].append(attributes[key])
+            else:
+                meta_attr[key] = [attributes[key]]
+
+        meta_attr['type'].append(cityobject['type'])
         bbox2d = bbox2ds[obj_index]
 
         if ref_system:
@@ -429,15 +440,27 @@ def insert_cityjson(file_name, schema_name):
                 else:
                     print('unknown geometry type')
 
+    for key in meta_attr:
+        if isinstance(meta_attr[key][0], (int, float)):
+            meta_attr[key] = [min(meta_attr[key]), max(meta_attr[key])]
+        else:
+            meta_attr[key] = list(set(meta_attr[key]))
+
+    update_meta_attr = """
+        UPDATE metadata SET meta_attr = %s 
+        WHERE id= currval('metadata_id_seq') """
+    cur.execute(update_meta_attr, [json.dumps(meta_attr)])
+    conn.commit()
+
     print("""The insertion of "{}" in schema "{}" is done""".format(file_name, schema_name))
 
 
 #
 #
-insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
+# insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
 insert_cityjson('denhaag', DEFAULT_SCHEMA)
 insert_cityjson('delft', DEFAULT_SCHEMA)
 insert_cityjson('vienna', DEFAULT_SCHEMA)
 insert_cityjson('montreal', DEFAULT_SCHEMA)
-insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
-insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
+# insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
+# insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)

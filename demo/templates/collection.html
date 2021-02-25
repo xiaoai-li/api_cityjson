@@ -57,6 +57,7 @@
 
 
 
+
 </style>
 
 <div class="section bg-gray">
@@ -90,6 +91,21 @@
             (~FeatureCollection)</a></p>
 
         <h3>Attributes Filtering</h3>
+        <table class="table table-striped table-hover">
+            <tr>
+                <th>attribute name</th>
+                <th>values</th>
+            </tr>
+
+            {% for key, value in meta_attr.items() %}
+            <tr>
+                <td>{{ key }}</td>
+                <td>{{value }}</td>
+            </tr>
+            {% endfor %}
+
+
+        </table>
 
     </div>
     <div class="column" id="right">
@@ -157,6 +173,7 @@ var epsg=$('#epsg').val();
 this.href=this.href+'/?bbox='+minX+','+minY+','+maxX+','+maxY+'&epsg='+epsg;
 console.log(this.href);
 })
+
 
 
 </script>

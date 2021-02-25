@@ -74,3 +74,4 @@ direct :(
 - refer change to int type in db
 
 - attribute filtering level on cols???
+- create index for each attributs

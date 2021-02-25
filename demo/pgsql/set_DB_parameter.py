@@ -55,6 +55,7 @@ def create_schema(db_name, schema_name):
             bbox geometry(POLYGON),
             datasetTitle text,
             object jsonb,
+            meta_attr jsonb,
             UNIQUE (name, version)
         )
 
