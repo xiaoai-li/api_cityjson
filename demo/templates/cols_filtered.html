@@ -50,7 +50,6 @@
 
 
 
-
 </style>
 <div class="section bg-gray">
     <ul class="breadcrumb">
@@ -60,7 +59,12 @@
         <li class="breadcrumb-item">
             <a href="{{ url_for('collections') }}">collections</a>
         </li>
-
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('collections') }}{{ datasetname }}">{{ datasetname }}</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('collections') }}{{ datasetname }}/items/">Items</a>
+        </li>
     </ul>
 </div>
 
@@ -89,30 +93,15 @@
 
     </div>
 
+    </div>
+
     <div class="center">
-        {% include 'visualise2d.html' %}
+        {% include 'visualise.html' %}
 
     </div>
 
 </div>
-<script>
-var epsg={{ crs|int }}
 
-$("#bbox").click(function(){
-var minX=$('#minX').val();
-var minY=$('#minY').val();
-var maxX=$('#maxX').val();
-var maxY=$('#maxY').val();
-var epsg=$('#epsg').val();
-
-this.href=this.href+'/?bbox='+minX+','+minY+','+maxX+','+maxY+'&epsg='+epsg;
-console.log(this.href);
-})
-
-
-
-
-</script>
 
 {% endblock %}
 

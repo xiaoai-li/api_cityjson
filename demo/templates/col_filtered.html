@@ -80,7 +80,7 @@
             {% for feature in rows %}
             {% for key, value in feature["CityObjects"].items() %}
             <tr>
-                <!--                <td><a href="{{ request.path }}/items/{{ key }}">{{ key }}</a></td>-->
+<!--                                <td><a href="{{ request.path }}/items/{{ key }}">{{ key }}</a></td>-->
                 <td><a href="{{ url_for('collections') }}{{ datasetname }}/items/{{ key }}">{{ key }}</a></td>
                 <td>{{value['type'] }}</td>
             </tr>
@@ -98,23 +98,7 @@
     </div>
 
 </div>
-<script>
-var epsg={{ crs|int }}
 
-$("#bbox").click(function(){
-var minX=$('#minX').val();
-var minY=$('#minY').val();
-var maxX=$('#maxX').val();
-var maxY=$('#maxY').val();
-var epsg=$('#epsg').val();
-
-this.href=this.href+'/?bbox='+minX+','+minY+','+maxX+','+maxY+'&epsg='+epsg;
-console.log(this.href);
-})
-
-
-
-</script>
 
 {% endblock %}
 

@@ -1,14 +1,11 @@
 import json
 import os
+from time import sleep
 
-import flask
-import pytest
 from cjio import cityjson
-from flask import Flask, render_template, request, Response, stream_with_context
+from flask import Flask, render_template, request, Response, stream_with_context, render_template_string
 from pgsql.query_PostgreSQL import query_collections, query_items, query_feature, query_col_bbox, query_cols_bbox, \
     filter_col_bbox, filter_cols_bbox
-
-
 
 app = Flask(__name__)
 
@@ -21,6 +18,36 @@ PATHDATASETS = './datasets/'
 JINVALIDFORMAT = {"code": "InvalidParameterValue", "description": "Invalid format"}
 JINVALIDCOLLECTION = {"code": "InvalidParameterValue", "description": "Invalid feature collection"}
 JINVALIDIDENTIFIER = {"code": "NotFound", "description": "identifier not found"}
+
+
+# @pytest.yield_fixture
+# def client(app):
+#     """
+#     Overriding the `client` fixture from pytest_flask to fix this bug:
+#     https://github.com/pytest-dev/pytest-flask/issues/42
+#     """
+#     with app.test_client() as client:
+#         yield client
+#
+#     while True:
+#         top = flask._request_ctx_stack.top
+#         if top is not None and top.preserved:
+#             top.pop()
+#         else:
+#             break
+
+
+# @app.route("/stream")
+# def stream():
+#     @stream_with_context
+#     def generate():
+#         yield render_template_string('<link rel=stylesheet href="{{ url_for("static", filename="stream.css") }}">')
+#
+#         for i in range(500):
+#             yield render_template_string("<p>{{ i }}: {{ s }}</p>\n", i=i, s=i*2)
+#             sleep(1)
+#
+#     return app.response_class(generate())
 
 
 @app.route('/', methods=['GET'])
@@ -37,28 +64,28 @@ def root():
 @app.route('/collections/', methods=['GET'])  # -- html/json
 def collections():
     # -- bbox
-    re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
-
-    if re_bbox is not None:
-        r = re_bbox.split(',')
-        if len(r) != 4:
-            return JINVALIDFORMAT
-        try:
-            re_bbox = list(map(float, r))
-            generator = stream_with_context(filter_cols_bbox(bbox=re_bbox))
-            dataset = "global_filtered"
-            return Response(stream_template('cols_filtered.html', rows=generator, datasetname=dataset))
-        except:
-            return JINVALIDFORMAT
+    # re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
+    #
+    # if re_bbox is not None:
+    #     r = re_bbox.split(',')
+    #     if len(r) != 4:
+    #         return JINVALIDFORMAT
+    #     try:
+    #         re_bbox = list(map(float, r))
+    #         generator = stream_with_context(filter_cols_bbox(bbox=re_bbox))
+    #         dataset = "global_filtered"
+    #         return Response(stream_template('cols_filtered.html', rows=generator, datasetname=dataset))
+    #     except:
+    #         return JINVALIDFORMAT
+    # else:
+    bboxes = query_cols_bbox()
+    re = request.args.get('f', None)
+    if re == 'html' or re is None:
+        return render_template("collections.html", datasets=jindex['collections'], bounds=bboxes, type=0)
+    elif re == 'json':
+        return json.dumps(jindex)  # todo?
     else:
-        bboxes = query_cols_bbox()
-        re = request.args.get('f', None)
-        if re == 'html' or re is None:
-            return render_template("collections.html", datasets=jindex['collections'], bounds=bboxes, type=0)
-        elif re == 'json':
-            return json.dumps(jindex)  # todo?
-        else:
-            return JINVALIDFORMAT
+        return JINVALIDFORMAT
 
 
 # @app.route('/collections/<dataset>/', methods=['GET'])  # -- html/json
@@ -121,8 +148,13 @@ def collection(dataset):
             return JINVALIDFORMAT
         try:
             re_bbox = list(map(float, r))
-            generator = stream_with_context(filter_col_bbox(file_name=dataset, bbox=re_bbox, epsg=re_epsg))
-            return Response(stream_template('col_filtered.html', rows=generator, datasetname=dataset))
+            if dataset == '_global':
+                generator = stream_with_context(filter_cols_bbox(bbox=re_bbox))
+                dataset = "global_filtered"
+                return Response(stream_template('cols_filtered.html', rows=generator, datasetname=dataset))
+            else:
+                generator = stream_with_context(filter_col_bbox(file_name=dataset, bbox=re_bbox, epsg=re_epsg))
+                return Response(stream_template('col_filtered.html', rows=generator, datasetname=dataset))
 
         except:
             return JINVALIDFORMAT
@@ -206,7 +238,6 @@ def visualise(dataset):
             return render_template("visualise.html", stream=dataset)
     return JINVALIDFORMAT
 
-
 # @app.route('/stream/', methods=['GET'])
 # def stream():
 #     dataset = request.args.get('dataset', None)
@@ -229,32 +260,32 @@ def visualise(dataset):
 #     f.close()
 #     return app.response_class(generate(), mimetype='application/json')
 
-@app.route('/collections/<dataset>/stream/')
-def collection_stream(dataset):
-    # -- fetch the dataset, invalid if not found
-    cm = getcm(dataset)
-    if cm == None:
-        return JINVALIDCOLLECTION
+# @app.route('/collections/<dataset>/stream/')
+# def collection_stream(dataset):
+#     # -- fetch the dataset, invalid if not found
+#     cm = getcm(dataset)
+#     if cm == None:
+#         return JINVALIDCOLLECTION
+#
+#     # line-delimited JSON generator
+#     def generate():
+#         for featureID in cm.j["CityObjects"]:
+#             f = cm.get_subset_ids([featureID], exclude=False).j
+#             if 'metadata' in f:
+#                 del f['metadata']
+#             if 'version' in f:
+#                 del f['version']
+#             if 'extensions' in f:
+#                 del f['extensions']
+#             f["type"] = "CityJSONFeature"
+#             f["id"] = featureID
+#             s = json.dumps(f)
+#             s += "\n"
+#             yield s
+#
+#     return Response(generate(), mimetype='application/json-seq')
 
-    # line-delimited JSON generator
-    def generate():
-        for featureID in cm.j["CityObjects"]:
-            f = cm.get_subset_ids([featureID], exclude=False).j
-            if 'metadata' in f:
-                del f['metadata']
-            if 'version' in f:
-                del f['version']
-            if 'extensions' in f:
-                del f['extensions']
-            f["type"] = "CityJSONFeature"
-            f["id"] = featureID
-            s = json.dumps(f)
-            s += "\n"
-            yield s
-
-    return Response(generate(), mimetype='application/json-seq')
-
-    # return Response(generate(), mimetype='text/plain')
+# return Response(generate(), mimetype='text/plain')
 
 # @app.route('/<filename>/download/')
 # def cmd_download(filename):
@@ -305,6 +336,6 @@ def collection_stream(dataset):
 #         return cm2.j
 
 # #
-# if __name__ == '__main__':
-#     app.debug = True
-#     app.run()
+if __name__ == '__main__':
+    app.debug = True
+    app.run()

@@ -72,3 +72,5 @@ direct :(
 - integrate with cjio (remove ophan..))
 - problem  every time qury full relatives  leads to duplicate 
 - refer change to int type in db
+
+- attribute filtering level on cols???

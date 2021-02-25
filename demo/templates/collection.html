@@ -56,6 +56,7 @@
 
 
 
+
 </style>
 
 <div class="section bg-gray">
@@ -87,6 +88,9 @@
 
         <p><a href="{{ url_for('collections') }}{{ dataset['name'] }}/items/?f=json">Get the CityJSON file
             (~FeatureCollection)</a></p>
+
+        <h3>Attributes Filtering</h3>
+
     </div>
     <div class="column" id="right">
         <div id="bbox_table">
@@ -153,6 +157,7 @@ var epsg=$('#epsg').val();
 this.href=this.href+'/?bbox='+minX+','+minY+','+maxX+','+maxY+'&epsg='+epsg;
 console.log(this.href);
 })
+
 
 </script>
 {% endblock %}
