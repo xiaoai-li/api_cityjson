@@ -5,8 +5,6 @@ certifi==2020.12.5
 cjio==0.6.3
 click==6.7
 cycler==0.10.0
-Flask==1.0.2
-Flask-SQLAlchemy==2.4.1
 GeoAlchemy2==0.8.4
 graphene==2.1.8
 graphql-core==2.3.2

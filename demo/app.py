@@ -184,7 +184,6 @@ def items(dataset):
     re_limit = int(request.args.get('limit', default=10))
     re_offset = int(request.args.get('offset', default=0))
     cm = query_items(file_name=dataset, limit=re_limit, offset=re_offset)
-    print(type(cm.j))
 
     # -- html/json
     re_f = request.args.get('f', None)

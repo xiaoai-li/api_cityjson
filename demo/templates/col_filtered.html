@@ -2,6 +2,29 @@
 
 {% block body %}
 <style>
+#viewer{
+    height:100%;
+}
+
+
+</style>
+
+
+<!-- 3rd party code -->
+<!-- script src="https://threejs.org/build/three.js"></script -->
+<script type="text/javascript" src="{{ url_for('static', filename='3rd/three.min.js') }}"></script>
+
+<script type="text/javascript" src="{{ url_for('static', filename='3rd/jquery.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='3rd/earcut.js') }}"></script>
+
+<!-- Scripts for loading CityObjects -->
+<script type="text/javascript" src="{{ url_for('static', filename='functions.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='OrbitControls.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='handle_cjf.js') }}"></script>
+<!-- For streaming of dataset into viewer -->
+<script type="text/javascript"
+        src="{{ url_for('static', filename='stream_cjc.js') }}"></script>
+<style>
   .h2{
     height:80px;
   }
@@ -50,6 +73,8 @@
 
 
 
+
+
 </style>
 <div class="section bg-gray">
     <ul class="breadcrumb">
@@ -80,7 +105,6 @@
             {% for feature in rows %}
             {% for key, value in feature["CityObjects"].items() %}
             <tr>
-<!--                                <td><a href="{{ request.path }}/items/{{ key }}">{{ key }}</a></td>-->
                 <td><a href="{{ url_for('collections') }}{{ datasetname }}/items/{{ key }}">{{ key }}</a></td>
                 <td>{{value['type'] }}</td>
             </tr>
@@ -93,12 +117,28 @@
     </div>
 
     <div class="center">
-        {% include 'visualise2d.html' %}
+        <div id="data">nothing received yet</div>
 
+        <!-- Elements for visualisation -->
+        <div id="dragger"></div>
+        <div id="viewer"></div>
     </div>
 
 </div>
+<!-- Initialise viewer functionalities,
+    retrieve variables from Flask if they exist (from render_template arguments),
+    and start visualisation/streaming -->
+<script>
+    initDocument();
+    initViewer();
 
+  $("#data").text("{{ i }} {{ c }}")
+
+
+
+
+
+</script>
 
 {% endblock %}
 
