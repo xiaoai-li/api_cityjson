@@ -321,7 +321,19 @@ def query_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA):
             max_xy = pts_xy.max(axis=1)
             bbox_original = [[min_xy[1], min_xy[0]], [max_xy[1], max_xy[0]]]
             epsg = results[0][2]
-        meta_attr = results[0][3]
+            meta_attr = results[0][3]
+        else:
+            query_meta_attr= """
+                            SET search_path to {}, public;
+
+                            SELECT meta_attr
+                            FROM metadata
+                            WHERE name=%s 
+                            """.format(schema_name)
+            cur.execute(query_meta_attr, [file_name])
+            results = cur.fetchall()
+            meta_attr = results[0][0]
+
         return bbox_wgs84, bbox_original, epsg, meta_attr
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)

@@ -1,58 +1,239 @@
 {% extends "layout.html" %}
 {% block body %}
+<script type="text/javascript" src="{{ url_for('static', filename='3rd/jquery.js') }}"></script>
+
 <style>
-  .h2{
-    height:80px;
-  }
-  .h3{
-    height:80px;
-  }
-  .section{
-    height: 80px;
-  }
-.container{
-  height: 100vh;
-  overflow: hidden;
-}
-.row {
-  height: calc(100% - 320px);
-  position: relative;
-}
-.column {
-  position: relative;
-  float: left;
-  width: 50%;
-  height: 100%;
-}
+    .h2 {
+        height: 80px;
+    }
+
+    .h3 {
+        height: 80px;
+    }
+
+    .section {
+        height: 80px;
+    }
+
+    .container {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .row {
+        height: calc(100% - 320px);
+        position: relative;
+    }
+
+    .column {
+        position: relative;
+        float: left;
+        width: 50%;
+        height: 100%;
+    }
 
 
-#left {
-    float: left;
-    width: 50%;
-    overflow: auto;
-}
-#right {
-    float: left;
-    width: 50%;
-}
-#tb_attr{
-  table-layout: auto;
-}
+    #left {
+        float: left;
+        width: 50%;
+        overflow: auto;
+    }
 
-/* Clear floats after the columns */
-.row:after {
-  height: 100%;
-  content: "";
-  display: table;
-  clear: both;
-}
-.footer{
-  height: 80px;
-}
+    #right {
+        float: left;
+        width: 50%;
+    }
 
+    #tb_attr {
+        table-layout: auto;
+    }
 
+    /* Clear floats after the columns */
+    .row:after {
+        height: 100%;
+        content: "";
+        display: table;
+        clear: both;
+    }
 
+    .footer {
+        height: 80px;
+    }
 
+    /* ------------------------------------------ */
+    /* ----- combobox / dropdown list styling     */
+    /* ------------------------------------------ */
+    .combobox {
+        /* Border slightly darker than Chrome's <select>, slightly lighter than FireFox's */
+        border: 1px solid #999;
+        padding-right: 1.25em; /* leave room for ▾ */
+    }
+
+    .dropdown, .combobox {
+        /* "relative" and "inline-block" (or just "block") are needed
+           here so that "absolute" works correctly in children */
+        position: relative;
+        display: inline-block;
+    }
+
+    .combobox > .downarrow, .dropdown > .downarrow {
+        /* ▾ Outside normal flow, relative to container */
+        display: inline-block;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        width: 1.25em;
+
+        cursor: default;
+        nav-index: -1; /* nonfunctional in most browsers */
+
+        border-width: 0px; /* disable by default */
+        border-style: inherit; /* copy parent border */
+        border-color: inherit; /* copy parent border */
+    }
+
+    /* Add a divider before the ▾ down arrow in non-dropdown comboboxes */
+    .combobox:not(.dropdown) > .downarrow {
+        border-left-width: 1px;
+    }
+
+    /* Auto-down-arrow if one is not provided */
+    .downarrow:empty::before {
+        content: '▾';
+    }
+
+    .downarrow::before, .downarrow > *:only-child {
+        text-align: center;
+
+        /* vertical centering trick */
+        position: relative;
+        top: 50%;
+        display: block; /* transform requires block/inline-block */
+        transform: translateY(-50%);
+    }
+
+    .combobox > input {
+        border: 0
+    }
+
+    .dropdown > *:last-child,
+    .combobox > *:last-child {
+        /* Using `display:block` here has two desirable effects:
+           (1) Accessibility: it lets input widgets in the dropdown to
+               be selected with the tab key when the dropdown is closed.
+           (2) It lets the opacity transition work.
+           But it also makes the contents visible, which is undesirable
+           before the list drops down. To compensate, use `opacity: 0`
+           and disable mouse pointer events. Another side effect is that
+           the user can select and copy the contents of the hidden list,
+           but don't worry, the selected content is invisible. */
+        display: block;
+        opacity: 0;
+        pointer-events: none;
+
+        transition: 0.4s; /* fade out */
+        position: absolute;
+        left: 0;
+        top: 100%;
+        border: 1px solid #888;
+        background-color: #fff;
+        box-shadow: 1px 2px 4px 1px #666;
+        box-shadow: 1px 2px 4px 1px #4448;
+        z-index: 9999;
+        min-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* List of situations in which to show the dropdown list.
+       - Focus dropdown or non-last child of it => show last-child
+       - Focus .downarrow of combobox => show last-child
+       - Stay open for focus in last child, unless .less-sticky
+       - .sticky last child stays open on hover
+       - .less-sticky stays open on hover, ignores focus in last-child */
+    .dropdown:focus > *:last-child,
+    .dropdown > *:focus ~ *:last-child,
+    .combobox > .downarrow:focus ~ *:last-child,
+    .combobox > .sticky:last-child:hover,
+    .dropdown > .sticky:last-child:hover,
+    .combobox > .less-sticky:last-child:hover,
+    .dropdown > .less-sticky:last-child:hover,
+    .combobox > *:last-child:focus:not(.less-sticky),
+    .dropdown > *:last-child:focus:not(.less-sticky) {
+        display: block;
+        opacity: 1;
+        transition: 0.15s;
+        pointer-events: auto;
+    }
+
+    /* focus-within not supported by Edge/IE. Unsupported selectors cause
+       the entire block to be ignored, so we must repeat all styles for
+       focus-within separately. */
+    .combobox > *:last-child:focus-within:not(.less-sticky),
+    .dropdown > *:last-child:focus-within:not(.less-sticky) {
+        display: block;
+        opacity: 1;
+        transition: 0.15s;
+        pointer-events: auto;
+    }
+
+    /* detect Edge/IE and behave if though less-sticky is on for all
+       dropdowns (otherwise links won't be clickable) */
+    @supports (-ms-ime-align:auto) {
+        .dropdown > *:last-child:hover {
+            display: block;
+            opacity: 1;
+            pointer-events: auto;
+        }
+    }
+
+    /* detect IE and do the same thing. */
+    @media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {
+        .dropdown > *:last-child:hover {
+            display: block;
+            opacity: 1;
+            pointer-events: auto;
+        }
+    }
+
+    .dropdown:not(.sticky) > *:not(:last-child):focus,
+    .downarrow:focus, .dropdown:focus {
+        pointer-events: none; /* Causes second click to close */
+    }
+
+    .downarrow:focus {
+        outline: 2px solid #8BF; /* Edge/IE can't do outline transparency */
+        outline: 2px solid #48F8;
+    }
+
+    /* ------------------------------------------ */
+    /* ----- Optional extra styling for combobox / dropdown */
+    /* ------------------------------------------ */
+    *, *:before, *:after {
+        /* See https://css-tricks.com/international-box-sizing-awareness-day/ */
+        box-sizing: border-box;
+
+    }
+
+    .combobox > *:first-child {
+        display: inline-block;
+        width: 100%;
+        box-sizing: border-box; /* so 100% includes border & padding */
+    }
+
+    /* `.combobox:focus-within { outline:...}` doesn't work properly
+       in Firefox because the focus box is expanded to include the
+       (possibly hidden) drop list. As a workaround, put focus box on
+       the focused child. It is barely-visible so that it doesn't look
+       TOO ugly if the child isn't the same size as the parent. It
+       may be uglier if the first child is not styled as width:100% */
+    .combobox > *:not(:last-child):focus {
+        outline: 2px solid #48F8;
+    }
+
+    .combobox {
+        margin: 5px;
+    }
 
 
 </style>
@@ -89,9 +270,9 @@
 
         <div class="columns ">
             <div><h3>Attributes Filtering</h3></div>
-            <div>&nbsp&nbsp<a id="attr" href="{{ url_for('collections') }}{{ dataset['name']}}">
-                <button class="btn btn-primary">Confirm</button>
-            </a></div>
+            <div>&nbsp&nbsp
+                <button id="attr_confirm" class="btn btn-primary">Confirm</button>
+            </div>
         </div>
 
         <table id='tb_attr' class="table table-striped table-hover">
@@ -134,35 +315,22 @@
                 </div>
             </td>
             <td>
-                <!-- standard Accordions example -->
-                <!-- basic dropdown button -->
-                <!-- dropdown button group -->
-                <div class="dropdown">
-                    <div class="btn-group">
-                        <a id="selected_oper" href="#" class="btn">
-                            Equal
-                        </a>
-                        <a href="#" class="btn dropdown-toggle" tabindex="0">
-                            <i class="icon icon-caret"></i>
-                        </a>
+                <!-- menu component -->
+                <span class="combobox withtextlist">
+                <input type="text" value="Operator">
+                <span tabindex="-1" class="downarrow"></span>
+                <select size="10" class="sticky">
+                  <option> = </option>
+                  <option> > </option>
+                  <option> >= </option>
+                  <option> < </option>
+                  <option> <= </option>
 
-                        <!-- menu component -->
-                        <ul class="menu">
-                            <li id="eq" class="menu-item"><a href="#">Equal to</a></li>
-                            <li id="bt" class="menu-item"><a href="#">Bigger than</a></li>
-                            <li id="bet" class="menu-item"><a href="#">Bigger and equal than</a></li>
-                            <li id="st" class="menu-item"><a href="#">Smaller than</a></li>
-                            <li id="set" class="menu-item"><a href="#">Smaller and equal than</a></li>
+                </select>
+              </span>
 
-                        </ul>
-
-                    </div>
-                </div>
             </td>
-
-
             {% endif %}
-
             </tr>
             {% endfor %}
 
@@ -187,7 +355,7 @@
                     <td>
                         <div class="columns col-oneline">
                             <input class="form-input" type="text" id="epsg" placeholder="EPSG">
-                            <a id="bbox" href="{{ url_for('collections') }}{{ dataset['name']}}">
+                            <a id="bbox_confirm" href="{{ url_for('collections') }}{{ dataset['name']}}">
                                 <button class="btn btn-primary">Confirm</button>
                             </a>
 
@@ -217,52 +385,76 @@
 </div>
 
 <script>
-var epsg={{ crs }}
-console.log(epsg)
-if (epsg==0){
-let warning= "<div class='toast toast-warning'>The dataset has no crs infomation.</div>";
- $("#bbox_table").html(warning);
-
-}
-
-$("#bbox").click(function(){
-var minX=$('#minX').val();
-var minY=$('#minY').val();
-var maxX=$('#maxX').val();
-var maxY=$('#maxY').val();
-var epsg=$('#epsg').val();
-
-this.href=this.href+'/?bbox='+minX+','+minY+','+maxX+','+maxY+'&epsg='+epsg;
-console.log(this.href);
-
-$("#bt").click(function(){
-    $(#selected_oper).val($("#bt").val());
-});
-})
+    // var epsg ={{crs}}
+    // if (epsg == 0) {
+    //     let warning = "<div class='toast toast-warning'>The dataset has no crs infomation.</div>";
+    //     $("#bbox_table").html(warning);
+    //
+    // }
+    //
+    //
+    // $("#bbox_confirm").click(function () {
+    //     let minX = $('#minX').val();
+    //     let minY = $('#minY').val();
+    //     let maxX = $('#maxX').val();
+    //     let maxY = $('#maxY').val();
+    //     let epsg = $('#epsg').val();
+    //
+    //     this.href = this.href + '/?bbox=' + minX + ',' + minY + ',' + maxX + ',' + maxY + '&epsg=' + epsg;
+    // });
 
 
+    function parentComboBox(el) {
+        for (el = el.parentNode; el != null && Array.prototype.indexOf.call(el.classList, "combobox") <= -1;)
+            el = el.parentNode;
+        return el;
+    }
+
+    // Use jQuery for slightly simpler code.
+    $(".combobox.withtextlist > select").change(function () {
+        var textbox = parentComboBox(this).firstElementChild;
+        textbox.value = this[this.selectedIndex].text;
+    });
+
+    $(".combobox .cb-item").mousedown(function () {
+        parentComboBox(this).firstElementChild.innerHTML = this.innerHTML;
+    });
 
 
+    $("#attr_confirm").click(function () {
+            let filter = {};
+
+            $('#tb_attr tr').each(function () {
+                let attr_name = $(this).find("td:first").text();
+                filter[attr_name] = []
+                $(this).find("td:nth-child(2)").find("label input[type='checkbox']").each(function () {
+                    if ($(this).prop('checked')) {
+                        let value = $(this).parent().text();
+                        filter[attr_name].push(value)
+                    }
+                })
+                $(this).find("td:nth-child(3)").find("input[type='text']").each(function () {
+                    let operator = $(this).val();
+                    if (operator != 'Operator') {
+                        let value = $(this).parent().parent().prev().find("input[type='range']").val()
+                        filter[attr_name].push(value)
+                    }
+
+                });
+            })
 
 
+            for (let attr in filter) {
+                let value = filter[attr]
+                if (value.length == 0)
+                    delete filter[attr];  // or delete person["age"];
+            }
 
+            console.log(filter)
+        }
+    );
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    // let value = $(this).find("td:nth-child(2)").find("label").text();
 
 
 </script>

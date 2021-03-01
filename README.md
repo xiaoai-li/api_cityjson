@@ -75,3 +75,6 @@ direct :(
 
 - attribute filtering level on cols???
 - create index for each attributs
+
+- all vertices transform (waste of time)
+- chunking is still necessary

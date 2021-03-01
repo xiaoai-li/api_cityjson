@@ -458,9 +458,9 @@ def insert_cityjson(file_name, schema_name):
 #
 #
 # insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
-insert_cityjson('denhaag', DEFAULT_SCHEMA)
-insert_cityjson('delft', DEFAULT_SCHEMA)
-insert_cityjson('vienna', DEFAULT_SCHEMA)
-insert_cityjson('montreal', DEFAULT_SCHEMA)
-# insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
-# insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
+# insert_cityjson('denhaag', DEFAULT_SCHEMA)
+# insert_cityjson('delft', DEFAULT_SCHEMA)
+# insert_cityjson('vienna', DEFAULT_SCHEMA)
+# insert_cityjson('montreal', DEFAULT_SCHEMA)
+insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
+insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
