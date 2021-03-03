@@ -78,3 +78,9 @@ direct :(
 
 - all vertices transform (waste of time)
 - chunking is still necessary
+
+- filter_cols_bbox simplify the SQL
+
+- if user only want building part
+
+- if exceeed 25 in total must put an input daar

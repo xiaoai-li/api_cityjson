@@ -1,5 +1,5 @@
 import json
-from time import sleep
+from time import sleep, time
 
 import numpy as np
 from cjio.cityjson import CityJSON
@@ -24,7 +24,7 @@ TOPLEVEL = ('Building',
             'WaterBody')
 DEFAULT_DB = 'cityjson'
 DEFAULT_SCHEMA = 'addcolumns'
-FETCH_SIZE = 1000
+FETCH_SIZE = 10
 
 CHILDREN = """
             -- get children of original query
@@ -91,10 +91,46 @@ def query_items(file_name=None, schema_name=DEFAULT_SCHEMA, limit=10, offset=0):
     return cityjson
 
 
-def filter_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA, bbox=None, epsg=None):
+def filter_col(file_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, bbox=None, epsg=None):
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()  # Open a cursor to perform database operations
 
+    if epsg and bbox:
+        query_bbox = """
+        (st_transform(c.bbox, {})&&ST_Envelope('SRID={};LINESTRING({} {}, {} {} )'::geometry)) 
+        """.format(epsg, epsg, bbox[0], bbox[1], bbox[2], bbox[3])
+    else:
+        query_bbox = "True "
+
+    if attrs:
+        query_attr = ""
+        for attr in attrs:
+            value = attrs[attr]
+
+            if attr == "type":
+                if len(value) == 1:
+                    query_attr += "AND type IN ('{}') ".format(value[0])
+                else:
+                    query_attr += "AND type IN {} ".format(tuple(value))
+            elif isinstance(value, list):
+                if len(value) == 1:
+                    query_attr += "AND attributes->> '{}' IN ('{}') ".format(attr, value[0])
+
+                else:
+                    query_attr += "AND attributes->> '{}' IN {} ".format(attr, tuple(value))
+            else:
+                if "value" in value:
+                    val = value["value"]
+                    operator = value["operator"]
+                    query_attr += "AND  (attributes->>'{}')::float {} {} ".format(attr, operator, val)
+                if "range" in value:
+                    min = value["range"][0]
+                    max = value["range"][1]
+                    query_attr += "AND (attributes->> '{}')::float >= {} AND (attributes->> '{}')::float <= {} ".format(
+                        attr, min, attr, max)
+
+    else:
+        query_attr = "AND True "
     query_origin = """
         SET search_path to {}, public;
 
@@ -102,16 +138,42 @@ def filter_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA, bbox=None, epsg=
         WITH origin AS (
         SELECT obj_id as main_id, obj_id, c.object, vertices,children
         FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
-        WHERE name=%s AND type IN {} AND
-        (st_transform(c.bbox, {})&&ST_Envelope('SRID={};LINESTRING({} {}, {} {} )'::geometry))),
-        """.format(schema_name, TOPLEVEL, epsg, epsg, bbox[0], bbox[1], bbox[2], bbox[3])
+        WHERE name=%s  AND {} {}),
+        """.format(schema_name, query_bbox, query_attr)
 
     query_cityobjects = query_origin + CHILDREN
 
     def generator():
         try:
+            t0 = time()
             cur.execute(query_cityobjects, [file_name])
-            yield from __stream_col(cur)
+            t1 = time()
+            print(t1 - t0)
+
+            while True:
+                rows = cur.fetchmany(1)
+                if not rows:
+                    break
+                main_id = rows[0][0]
+                cityjson = CityJSON()
+                for row in rows:
+                    id = row[1]
+                    object = row[2]
+                    vertices = row[3]
+                    add_cityobject(cityjson, id, object, vertices)
+                    if row[0] != main_id or len(rows) == 1:
+                        cityjson.remove_duplicate_vertices()
+                        cj_feature = {
+                            "type": "CityJSONFeature",
+                            "id": main_id,
+                            "CityObjects": cityjson.j['CityObjects'],
+                            "vertices": cityjson.j['vertices']
+                        }
+                        yield cj_feature
+                        sleep(0.5)
+
+                        cityjson = CityJSON()
+                        main_id = row[0]
         finally:
             threaded_postgreSQL_pool.putconn(conn)
 
@@ -160,79 +222,48 @@ def filter_cols_bbox(schema_name=DEFAULT_SCHEMA, bbox=None, ):
         UNION SELECT * FROM siblings
         ORDER BY name, main_id
         """.format(schema_name, Line, TOPLEVEL, Line, TOPLEVEL, Line)
-    print(query_cityobjects)
 
     def generator():
         try:
             cur.execute(query_cityobjects)
-            yield from __stream_cols(cur)
+            while True:
+                rows = cur.fetchmany(FETCH_SIZE)
+                if not rows:
+                    break
+                main_id = rows[0][0]
+                cityjson = CityJSON()
+                for row in rows:
+                    if row[0] != main_id:
+                        cityjson.remove_duplicate_vertices()
+                        cj_feature = {
+                            "type": "CityJSONFeature",
+                            "id": main_id,
+                            "CityObjects": cityjson.j['CityObjects'],
+                            "vertices": cityjson.j['vertices']
+                        }
+                        yield cj_feature
+                        sleep(0.5)
+
+                        cityjson = CityJSON()
+                        main_id = row[0]
+                    id = row[1]
+                    object = row[2]
+                    object['file'] = row[4]
+                    vertices = row[3]
+                    crs = int(row[5])
+                    transformed_vertices = []
+
+                    if len(vertices) > 1:
+                        transformer = Transformer.from_crs(crs, 4326)
+                        for pt in transformer.itransform(vertices):
+                            transformed_vertices.append(pt)
+
+                    add_cityobject(cityjson, id, object, transformed_vertices)
         finally:
             threaded_postgreSQL_pool.putconn(conn)
 
     return generator()
 
-
-def __stream_col(cursor):
-    while True:
-        rows = cursor.fetchmany(FETCH_SIZE)
-        if not rows:
-            break
-        main_id = rows[0][0]
-        cityjson = CityJSON()
-        for row in rows:
-            if row[0] != main_id:
-                cityjson.remove_duplicate_vertices()
-                cj_feature = {
-                    "type": "CityJSONFeature",
-                    "id": main_id,
-                    "CityObjects": cityjson.j['CityObjects'],
-                    "vertices": cityjson.j['vertices']
-                }
-                yield cj_feature
-                sleep(0.5)
-
-                cityjson = CityJSON()
-                main_id = row[0]
-            id = row[1]
-            object = row[2]
-            vertices = row[3]
-            add_cityobject(cityjson, id, object, vertices)
-
-
-def __stream_cols(cursor):
-    while True:
-        rows = cursor.fetchmany(FETCH_SIZE)
-        if not rows:
-            break
-        main_id = rows[0][0]
-        cityjson = CityJSON()
-        for row in rows:
-            if row[0] != main_id:
-                cityjson.remove_duplicate_vertices()
-                cj_feature = {
-                    "type": "CityJSONFeature",
-                    "id": main_id,
-                    "CityObjects": cityjson.j['CityObjects'],
-                    "vertices": cityjson.j['vertices']
-                }
-                yield cj_feature
-                sleep(0.5)
-
-                cityjson = CityJSON()
-                main_id = row[0]
-            id = row[1]
-            object = row[2]
-            object['file'] = row[4]
-            vertices = row[3]
-            crs = int(row[5])
-            transformed_vertices = []
-
-            if len(vertices) > 1:
-                transformer = Transformer.from_crs(crs, 4326)
-                for pt in transformer.itransform(vertices):
-                    transformed_vertices.append(pt)
-
-            add_cityobject(cityjson, id, object, transformed_vertices)
 
 
 def query_collections(schema_name=DEFAULT_SCHEMA):
@@ -323,7 +354,7 @@ def query_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA):
             epsg = results[0][2]
             meta_attr = results[0][3]
         else:
-            query_meta_attr= """
+            query_meta_attr = """
                             SET search_path to {}, public;
 
                             SELECT meta_attr
@@ -381,7 +412,9 @@ try:
         print("Connection pool created successfully using ThreadedConnectionPool")
         # _test = query_col_bbox(file_name='DA13_3D_Buildings_Merged')
         # print(_test)
-        # for i in filter_cols_bbox(bbox=[4.26787, 52.10574, 4.26954, 52.10669]):
+        # for i in filter_col(file_name="Zurich_Building_LoD2_V10",
+        #                     attrs={'class': ['BB04'], 'Region': {'range': [1, 10]}, 'Geomtype': {'range': [1, 2]},
+        #                            'QualitaetStatus': {'range': [0, 2]}}):
         #     print(i)
 
         # Get String after substring occurrence

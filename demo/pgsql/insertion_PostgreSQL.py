@@ -266,10 +266,11 @@ def insert_cityjson(file_name, schema_name):
             attributes = cityobject['attributes']
 
         for key in attributes:
-            if key in meta_attr.keys():
-                meta_attr[key].append(attributes[key])
-            else:
-                meta_attr[key] = [attributes[key]]
+            if attributes[key] != "":
+                if key in meta_attr.keys():
+                    meta_attr[key].append(attributes[key])
+                else:
+                    meta_attr[key] = [attributes[key]]
 
         meta_attr['type'].append(cityobject['type'])
         bbox2d = bbox2ds[obj_index]
@@ -439,16 +440,20 @@ def insert_cityjson(file_name, schema_name):
 
                 else:
                     print('unknown geometry type')
+    add_index_attr = ""
 
     for key in meta_attr:
+        if key != "type":
+            add_index_attr += "CREATE INDEX ON city_object((attributes->>'{}'));".format(key)
         if isinstance(meta_attr[key][0], (int, float)):
             meta_attr[key] = [min(meta_attr[key]), max(meta_attr[key])]
         else:
             meta_attr[key] = list(set(meta_attr[key]))
 
     update_meta_attr = """
+        {}
         UPDATE metadata SET meta_attr = %s 
-        WHERE id= currval('metadata_id_seq') """
+        WHERE id= currval('metadata_id_seq') """.format(add_index_attr)
     cur.execute(update_meta_attr, [json.dumps(meta_attr)])
     conn.commit()
 
@@ -459,8 +464,8 @@ def insert_cityjson(file_name, schema_name):
 #
 # insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
 # insert_cityjson('denhaag', DEFAULT_SCHEMA)
-# insert_cityjson('delft', DEFAULT_SCHEMA)
+insert_cityjson('delft', DEFAULT_SCHEMA)
 # insert_cityjson('vienna', DEFAULT_SCHEMA)
 # insert_cityjson('montreal', DEFAULT_SCHEMA)
-insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
-insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
+# insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
+# insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)

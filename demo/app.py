@@ -1,11 +1,11 @@
 import json
 import os
-from time import sleep
 
 from cjio import cityjson
-from flask import Flask, render_template, request, Response, stream_with_context, render_template_string
+from flask import Flask, render_template, request, Response, stream_with_context
+
 from pgsql.query_PostgreSQL import query_collections, query_items, query_feature, query_col_bbox, query_cols_bbox, \
-    filter_col_bbox, filter_cols_bbox
+    filter_col, filter_cols_bbox
 
 app = Flask(__name__)
 
@@ -142,6 +142,9 @@ def collection(dataset):
     re_bbox = request.args.get('bbox', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
     re_epsg = request.args.get('epsg', None)
 
+    # -- attr
+    re_attrs = request.args.get('attrs', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
+
     if re_bbox is not None:
         r = re_bbox.split(',')
         if len(r) != 4:
@@ -153,11 +156,16 @@ def collection(dataset):
                 dataset = "global_filtered"
                 return Response(stream_template('cols_filtered.html', rows=generator, datasetname=dataset))
             else:
-                generator = stream_with_context(filter_col_bbox(file_name=dataset, bbox=re_bbox, epsg=re_epsg))
+                generator = stream_with_context(filter_col(file_name=dataset, bbox=re_bbox, epsg=re_epsg))
                 return Response(stream_template('col_filtered.html', rows=generator, datasetname=dataset))
 
         except:
             return JINVALIDFORMAT
+    elif re_attrs is not None:
+        re_attrs = json.loads(re_attrs)
+        generator = stream_with_context(filter_col(file_name=dataset, attrs=re_attrs))
+        return Response(stream_template('col_filtered.html', rows=generator, datasetname=dataset))
+
     else:
         bbox_wgs84, bbox_original, epsg, meta_attr = query_col_bbox(dataset)
         re = request.args.get('f', None)
@@ -236,6 +244,7 @@ def visualise(dataset):
         if each['id'] == dataset:
             return render_template("visualise.html", stream=dataset)
     return JINVALIDFORMAT
+
 
 # @app.route('/stream/', methods=['GET'])
 # def stream():

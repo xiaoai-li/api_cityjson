@@ -2,24 +2,25 @@
 <html>
 
 <head>
-  <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre.min.css">
-  <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-exp.min.css">
-  <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-icons.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-exp.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-icons.min.css">
+
 </head>
 
 <body>
 
-  <div class="container">
+<div class="container">
     <div class="section bg-primary">
-      <h1>CityJSON RESTful access demo</h1>
+        <h1>CityJSON RESTful access demo</h1>
     </div>
 
-  {% block body %} {% endblock %}
+    {% block body %} {% endblock %}
 
     <div class="divider"></div>
     <div class="footer">
-      <a href="{{ request.path }}?f=json">JSON</a>
+        <a href="{{ request.path }}?f=json">JSON</a>
     </div>
-  </div>
+</div>
 </body>
 </html>
