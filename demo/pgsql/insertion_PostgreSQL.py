@@ -143,13 +143,33 @@ def insert_cityjson(file_name, schema_name):
             data_title = data['metadata']['datasetTitle']
 
     # transform back
-    if 'transform' in data.keys():
-        transform = data['transform']
-        data['vertices'] = (np.array(data['vertices']) * transform["scale"] + transform["translate"]).tolist()
+    if 'transform' not in data.keys():
+        pts_xyz = np.array(data['vertices']).T.min(axis=1)
+        _diff = (data["vertices"] - pts_xyz).flatten()
+        flat_vertices = np.array([int(("%.3f" % x).replace('.', '')) for x in _diff])
+        data['vertices'] = np.reshape(flat_vertices, (-1, 3)).tolist()
 
+        # -- put transform
+        data["transform"] = {}
+        ss = '0.'
+        ss += '0' * 2
+        ss += '1'
+        ss = float(ss)
+        data["transform"]["scale"] = [ss, ss, ss]
+        data["transform"]["translate"] = [pts_xyz[0], pts_xyz[1], pts_xyz[2]]
+
+    # get the norm mattrix
+    pts_xyz_max = np.array(data['vertices']).T.max(axis=1)
+    center = pts_xyz_max / 2
+    s = 1.0 / center.max()
+
+    # _test=(np.array(data['vertices'])-center )* s
+
+    transform_norm = {"scale": s, "translate": center.tolist()}
+    scale = data["transform"]["scale"]
+    translate = data["transform"]["translate"]
     # get real bbox
     separate_vertices = []
-    arr_vertices = []
     bbox2ds = []
     centroids = []
     parent_ids = []  # records which objs are multipart buildings
@@ -157,22 +177,22 @@ def insert_cityjson(file_name, schema_name):
     for obj_id in data['CityObjects']:
         cityobject = data['CityObjects'][obj_id]
         vertices = process_geometry(data, cityobject)
+        separate_vertices.append(vertices)
         if len(vertices) == 0:
             bbox2d = [0, 0, 0, 0]
             centroid = [0, 0]  # update later mainly for the tree query
             parent_ids.append(obj_id)
         else:
+            vertices = (np.array(vertices) * scale + translate)
             x, y, z = zip(*vertices)
             bbox2d = [min(x), min(y), max(x), max(y)]
             centroid = [(bbox2d[0] + bbox2d[2]) / 2, (bbox2d[1] + bbox2d[3]) / 2]
         bbox2ds.append(bbox2d)
         centroids.append(centroid)
-        separate_vertices.append(vertices)
-        arr_vertices.extend(vertices)
     bbox2ds = np.array(bbox2ds)
     centroids = np.array(centroids)
     # prepare tiles
-    pts_xy = np.array(arr_vertices).T[:2]
+    pts_xy = np.array(np.array(data["vertices"]) * scale + translate).T[:2]
     min_xy = pts_xy.min(axis=1)
     max_xy = pts_xy.max(axis=1)
 
@@ -221,20 +241,24 @@ def insert_cityjson(file_name, schema_name):
         insert_metadata = """
         SET search_path TO {}, public; 
         INSERT INTO {}.metadata 
-        (name, version, referenceSystem, bbox, datasetTitle, object) 
-        VALUES ( %s, %s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s)""" \
+        (name, version, referenceSystem, bbox, datasetTitle, object,transform_int,transform_norm) 
+        VALUES ( %s, %s, %s, ST_MakeEnvelope({}, {}, {}, {}, {}), %s, %s,%s,%s)""" \
             .format(schema_name, schema_name, min_xy[0], min_xy[1], max_xy[0], max_xy[1], ref_system)
         cur.execute(insert_metadata,
-                    (file_name, data['version'], ref_system, data_title, json.dumps(data['metadata'])))
+                    (file_name, data['version'], ref_system, data_title, json.dumps(data['metadata']),
+                     json.dumps(data['transform']), json.dumps(transform_norm)))
     else:
         insert_metadata = """
         SET search_path TO {}, public; 
         INSERT INTO {}.metadata 
-        (name, version, datasetTitle, object) 
-        VALUES ( %s, %s, %s, %s)""" \
+        (name, version, datasetTitle, object,transform_int,transform_norm) 
+        VALUES ( %s, %s, %s, %s,%s,%s)""" \
             .format(schema_name, schema_name, )
         cur.execute(insert_metadata,
-                    (file_name, data['version'], data_title, json.dumps(data['metadata'])))
+                    (
+                        file_name, data['version'], data_title, json.dumps(data['metadata']),
+                        json.dumps(data['transform']),
+                        json.dumps(transform_norm)))
 
     conn.commit()
 
@@ -464,8 +488,8 @@ def insert_cityjson(file_name, schema_name):
 #
 # insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
 # insert_cityjson('denhaag', DEFAULT_SCHEMA)
-insert_cityjson('delft', DEFAULT_SCHEMA)
+# insert_cityjson('delft', DEFAULT_SCHEMA)
 # insert_cityjson('vienna', DEFAULT_SCHEMA)
 # insert_cityjson('montreal', DEFAULT_SCHEMA)
 # insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
-# insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
+insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)

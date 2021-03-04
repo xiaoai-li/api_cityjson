@@ -84,3 +84,5 @@ direct :(
 - if user only want building part
 
 - if exceeed 25 in total must put an input daar
+
+- reduce unneccesarry vertices transform (cols with same crs)

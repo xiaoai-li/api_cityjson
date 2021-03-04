@@ -56,6 +56,8 @@ def create_schema(db_name, schema_name):
             datasetTitle text,
             object jsonb,
             meta_attr jsonb,
+            transform_int jsonb,
+            transform_norm jsonb,
             UNIQUE (name, version)
         )
 
