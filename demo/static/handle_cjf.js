@@ -70,7 +70,7 @@ function initViewer(norm_input) {
     console.log(norm)
 
     // Focus camera on middle of dataset
-    camera.position.set(0, 0, 1);
+    camera.position.set(0, 0,2);
     //camera.lookAt(0,0,0);
 
     //renderer for three.js

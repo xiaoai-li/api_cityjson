@@ -86,3 +86,11 @@ direct :(
 - if exceeed 25 in total must put an input daar
 
 - reduce unneccesarry vertices transform (cols with same crs)
+
+- chunk still useful!
+
+- finalize textbox input.
+
+- filter_cols add crs
+
+- no z value 

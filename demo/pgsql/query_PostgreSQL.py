@@ -26,13 +26,13 @@ FETCH_SIZE = 10
 CHILDREN = """
             -- get children of original query
             children AS(
-            SELECT unnest(parents) as main_id, obj_id, object,vertices
+            SELECT unnest(parents) as main_id, obj_id, object,vertices,id
             FROM city_object
             WHERE obj_id IN (SELECT unnest(children) FROM origin))
 
-            SELECT main_id, obj_id, object,vertices FROM origin
+            SELECT main_id, obj_id, object,vertices,id FROM origin
             UNION SELECT * FROM children
-            ORDER BY main_id
+            ORDER BY id
             """
 
 
@@ -134,12 +134,14 @@ def filter_col(file_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, bbox=None
 
         -- original query
         WITH origin AS (
-        SELECT obj_id as main_id, obj_id, c.object, vertices,children
+        SELECT obj_id as main_id, obj_id, c.object, vertices,children,c.id
         FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
-        WHERE name=%s AND type in {} AND {} {}),
-        """.format(schema_name, TOPLEVEL, query_bbox, query_attr)
+        WHERE name=%s AND {} {}),
+        
+        """.format(schema_name, query_bbox, query_attr)
 
     query_cityobjects = query_origin + CHILDREN
+    print(query_cityobjects)
 
     def generator():
         try:
@@ -182,7 +184,6 @@ def filter_col(file_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, bbox=None
                         }
 
                         yield cj_feature
-                        # sleep(0.5)
 
                         cityjson = CityJSON()
                         main_id = row[0]
@@ -200,94 +201,8 @@ def filter_col(file_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, bbox=None
                 }
 
                 yield cj_feature
-                # sleep(0.5)
 
 
-        finally:
-            threaded_postgreSQL_pool.putconn(conn)
-
-    return generator()
-
-
-def filter_cols_bbox(schema_name=DEFAULT_SCHEMA, bbox=None, ):
-    conn = threaded_postgreSQL_pool.getconn()
-    cur = conn.cursor()  # Open a cursor to perform database operations
-
-    Line = 'SRID=4326;LINESTRING({} {} , {} {} )'.format(bbox[0], bbox[1], bbox[2], bbox[3])
-    query_cityobjects = """
-        SET search_path to {}, public;
-        WITH cityjson AS (
-        SELECT id, name, referencesystem
-        FROM metadata
-        WHERE (st_transform(bbox, 4326)&&ST_Envelope('{}'::geometry))),
-        
-        origin_top AS (
-        SELECT obj_id as main_id, obj_id, c.object, vertices, name, referencesystem
-        FROM city_object AS c JOIN cityjson AS m ON c.metadata_id=m.id
-        WHERE metadata_id = m.id AND type IN {} AND
-        (st_transform(bbox, 4326)&&ST_Envelope('{}'::geometry))),
-        
-        origin_part AS (
-        SELECT obj_id, c.object, vertices,parents,name, referencesystem
-        FROM city_object AS c JOIN cityjson AS m ON c.metadata_id=m.id
-        WHERE metadata_id = m.id  AND type NOT IN {} AND
-        (st_transform(bbox, 4326)&&ST_Envelope('{}'::geometry))),
-        
-        -- get parents of original query_part
-        parents AS(
-        SELECT obj_id as main_id, obj_id, object,vertices,children, name, referencesystem
-        FROM city_object AS c JOIN cityjson AS m ON c.metadata_id=m.id
-        WHERE metadata_id = m.id  AND obj_id IN (SELECT unnest(parents) FROM origin_part)),
-        
-        -- get siblings of original query
-        siblings AS(
-        SELECT unnest(parents) as main_id, obj_id, object,vertices, name, referencesystem
-        FROM city_object AS c JOIN cityjson AS m ON c.metadata_id=m.id
-        WHERE metadata_id = m.id  AND obj_id IN (SELECT unnest(children) FROM parents))
-        
-        
-        SELECT main_id, obj_id, object,vertices, name, referencesystem FROM origin_top
-        UNION SELECT main_id, obj_id, object,vertices, name, referencesystem FROM parents
-        UNION SELECT * FROM siblings
-        ORDER BY name, main_id
-        """.format(schema_name, Line, TOPLEVEL, Line, TOPLEVEL, Line)
-
-    def generator():
-        try:
-            cur.execute(query_cityobjects)
-            while True:
-                rows = cur.fetchmany(FETCH_SIZE)
-                if not rows:
-                    break
-                main_id = rows[0][0]
-                cityjson = CityJSON()
-                for row in rows:
-                    if row[0] != main_id:
-                        cityjson.remove_duplicate_vertices()
-                        cj_feature = {
-                            "type": "CityJSONFeature",
-                            "id": main_id,
-                            "CityObjects": cityjson.j['CityObjects'],
-                            "vertices": cityjson.j['vertices']
-                        }
-                        yield cj_feature
-                        # sleep(1)
-
-                        cityjson = CityJSON()
-                        main_id = row[0]
-                    id = row[1]
-                    object = row[2]
-                    object['file'] = row[4]
-                    vertices = row[3]
-                    crs = int(row[5])
-                    transformed_vertices = []
-
-                    if len(vertices) > 1:
-                        transformer = Transformer.from_crs(crs, 4326)
-                        for pt in transformer.itransform(vertices):
-                            transformed_vertices.append(pt)
-
-                    add_cityobject(cityjson, id, object, transformed_vertices)
         finally:
             threaded_postgreSQL_pool.putconn(conn)
 
@@ -319,7 +234,8 @@ def query_feature(file_name=None, schema_name=DEFAULT_SCHEMA, feature_id=None):
 
             -- original query
             WITH origin AS (
-            SELECT obj_id as main_id, obj_id, c.object, vertices,children
+            SELECT obj_id as main_id, obj_id,
+              c.object, vertices,children
             FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
             WHERE name=%s and obj_id=%s),
             """.format(schema_name)
@@ -351,7 +267,7 @@ def query_feature(file_name=None, schema_name=DEFAULT_SCHEMA, feature_id=None):
     return cj_feature
 
 
-def query_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA):
+def query_col(file_name=None, schema_name=DEFAULT_SCHEMA):
     try:
         conn = threaded_postgreSQL_pool.getconn()
         cur = conn.cursor()  # Open a cursor to perform database operations
@@ -393,7 +309,7 @@ def query_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA):
             results = cur.fetchall()
             meta_attr = results[0][0]
         if meta_attr is None:
-            meta_attr={}
+            meta_attr = {}
 
         return bbox_wgs84, bbox_original, epsg, meta_attr
     except (Exception, psycopg2.DatabaseError) as error:
@@ -401,7 +317,7 @@ def query_col_bbox(file_name=None, schema_name=DEFAULT_SCHEMA):
         return
 
 
-def query_cols_bbox(schema_name=DEFAULT_SCHEMA):
+def query_cols_bbox(schema_name=DEFAULT_SCHEMA, epsg=4326):
     try:
         conn = threaded_postgreSQL_pool.getconn()
         cur = conn.cursor()  # Open a cursor to perform database operations
@@ -409,10 +325,10 @@ def query_cols_bbox(schema_name=DEFAULT_SCHEMA):
         query_bboxes = """
                 SET search_path to {}, public;
 
-                SELECT st_asgeojson(st_transform(bbox, 4326))
+                SELECT st_asgeojson(st_transform(bbox, {}))
                 FROM metadata
                 WHERE referencesystem IS NOT null
-                """.format(schema_name)
+                """.format(schema_name, epsg)
         cur.execute(query_bboxes)
         bboxes = []
         for result in cur.fetchall():
@@ -431,7 +347,6 @@ def query_col_transform(file_name=None, schema_name=DEFAULT_SCHEMA):
     try:
         conn = threaded_postgreSQL_pool.getconn()
         cur = conn.cursor()  # Open a cursor to perform database operations
-        transform, bbox_original, epsg = None, None, 0
 
         query_bbox = """
                 SET search_path to {}, public;
@@ -452,19 +367,22 @@ def query_col_transform(file_name=None, schema_name=DEFAULT_SCHEMA):
         return
 
 
+
 import psycopg2
 from psycopg2 import pool
 
 threaded_postgreSQL_pool = None
 try:
     threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool \
-        (5, 20, user="postgres",
+        (5, 50, user="postgres",
          password="1234",
          host="127.0.0.1",
          port="5432",
          database=DEFAULT_DB)
     if (threaded_postgreSQL_pool):
         print("Connection pool created successfully using ThreadedConnectionPool")
+        # query_cols_transform(bbox=[4.31831, 51.94088, 4.41582, 52.01109])
+        # query_col('37en1')
         # _test = query_col_bbox(file_name='DA13_3D_Buildings_Merged')
         # print(_test)
         # for i in filter_col(file_name="3-20-DELFSHAVEN"):
@@ -475,10 +393,8 @@ try:
         # points = [(22.95, 40.63), (22.81, 40.53), (23.51, 40.86)]
         # for pt in transformer.itransform(points):
         #     print('{:.3f} {:.3f}'.format(*pt))
-
-
-
-
+        # print(query_col_transform(file_name="Zurich_Building_LoD2_V10")
+        #       )
 
 
 finally:

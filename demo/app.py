@@ -4,8 +4,8 @@ import os
 from cjio import cityjson
 from flask import Flask, render_template, request, Response, stream_with_context
 
-from pgsql.query_PostgreSQL import query_collections, query_items, query_feature, query_col_bbox, query_cols_bbox, \
-    filter_col, filter_cols_bbox, query_col_transform
+from pgsql.query_PostgreSQL import query_collections, query_items, query_feature, query_col, query_cols_bbox, \
+    filter_col, query_col_transform
 
 app = Flask(__name__)
 
@@ -58,9 +58,9 @@ def collection(dataset):
     re_epsg = request.args.get('epsg', None)
 
     # -- attr
-    re_attrs = request.args.get('attrs', None)  # TODO : only 2D bbox? I'd say yes, but should be discussed...
+    re_attrs = request.args.get('attrs', None)
     transform_int, transform_norm = query_col_transform(file_name=dataset)
-
+    print(re_attrs)
     if re_bbox is not None:
         r = re_bbox.split(',')
 
@@ -68,17 +68,11 @@ def collection(dataset):
             return JINVALIDFORMAT
         try:
             re_bbox = list(map(float, r))
-
-            if dataset == '_global':
-                generator = stream_with_context(filter_cols_bbox(bbox=re_bbox))
-                dataset = "global_filtered"
-                return Response(stream_template('cols_filtered.html', rows=generator, datasetname=dataset))
-            else:
-                transform_int, transform_norm = query_col_transform(file_name=dataset)
-                generator = stream_with_context(filter_col(file_name=dataset, bbox=re_bbox, epsg=re_epsg))
-                return Response(
-                    stream_template('col_filtered.html', rows=generator, datasetname=dataset,
-                                    transform_int=transform_int, transform_norm=transform_norm))
+            transform_int, transform_norm = query_col_transform(file_name=dataset)
+            generator = stream_with_context(filter_col(file_name=dataset, bbox=re_bbox, epsg=re_epsg))
+            return Response(
+                stream_template('col_filtered.html', rows=generator, datasetname=dataset,
+                                transform_int=transform_int, transform_norm=transform_norm))
 
         except:
             return JINVALIDFORMAT
@@ -90,11 +84,11 @@ def collection(dataset):
                             transform_norm=transform_norm))
 
     else:
-        bbox_wgs84, bbox_original, epsg, meta_attr = query_col_bbox(dataset)
-
+        bbox_wgs84, bbox_original, epsg, meta_attr = query_col(dataset)
         re = request.args.get('f', None)
         if re == 'html' or re is None:
             collections = query_collections()
+            print(meta_attr)
             for each in collections:
                 if each['name'] == dataset:
                     return render_template("collection.html", dataset=each, bounds=json.dumps(bbox_wgs84),

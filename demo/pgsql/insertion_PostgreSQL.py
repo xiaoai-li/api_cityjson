@@ -163,8 +163,6 @@ def insert_cityjson(file_name, schema_name):
     center = pts_xyz_max / 2
     s = 1.0 / center.max()
 
-    # _test=(np.array(data['vertices'])-center )* s
-
     transform_norm = {"scale": s, "translate": center.tolist()}
     scale = data["transform"]["scale"]
     translate = data["transform"]["translate"]
@@ -290,7 +288,7 @@ def insert_cityjson(file_name, schema_name):
             attributes = cityobject['attributes']
 
         for key in attributes:
-            if attributes[key] != "":
+            if attributes[key] != "" and attributes[key] is not None:
                 if key in meta_attr.keys():
                     meta_attr[key].append(attributes[key])
                 else:
@@ -470,10 +468,17 @@ def insert_cityjson(file_name, schema_name):
         if key != "type":
             add_index_attr += "CREATE INDEX ON city_object((attributes->>'{}'));".format(key)
         if isinstance(meta_attr[key][0], (int, float)):
-            meta_attr[key] = [min(meta_attr[key]), max(meta_attr[key])]
+            try:
+                meta_attr[key] = [min(meta_attr[key]), max(meta_attr[key])]
+            except:
+                meta_attr[key] = []
+                print(key)
         else:
-            meta_attr[key] = list(set(meta_attr[key]))
-
+            value = list(set(meta_attr[key]))
+            if len(value) > 25:
+                meta_attr[key] = ["", value[0]]
+            else:
+                meta_attr[key] = value
     update_meta_attr = """
         {}
         UPDATE metadata SET meta_attr = %s 
@@ -493,3 +498,8 @@ def insert_cityjson(file_name, schema_name):
 # insert_cityjson('montreal', DEFAULT_SCHEMA)
 # insert_cityjson('DA13_3D_Buildings_Merged', DEFAULT_SCHEMA)
 insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
+
+# insert_cityjson('37en1', DEFAULT_SCHEMA)
+# insert_cityjson('37en2', DEFAULT_SCHEMA)
+# insert_cityjson('37ez1', DEFAULT_SCHEMA)
+# insert_cityjson('37ez2', DEFAULT_SCHEMA)

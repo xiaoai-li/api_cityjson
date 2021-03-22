@@ -95,7 +95,23 @@
 
             {% for key, value in meta_attr.items() %}
             {% if value[0] is string%}
+            {% if value[0] == ""%}
             <tr>
+
+                <td>{{ key }}</td>
+                <td><!-- form textarea control -->
+                    <div class="form-group">
+                        <textarea class="form-input" id="input-example-3"
+                                  placeholder="line as delimiter (e.g. {{value[1]}})" rows="3"></textarea>
+                    </div>
+                </td>
+                <td>Enumeration</td>
+            </tr>
+                                        {% else %}
+
+            <tr>
+
+
 
                 <td>{{ key }}</td>
 
@@ -114,6 +130,7 @@
                     Enumeration
                 </td>
             </tr>
+                {% endif %}
 
 
             {% else %}
@@ -127,7 +144,6 @@
                            round=2 value={{'%0.2f'| format(value[0]|float)}} color="#4D54DA">
 
                 </td>
-
 
                 <td>
                     <select>
@@ -240,7 +256,7 @@
                 }
                 $(this).find("td:nth-child(2)").find("label input[type='checkbox']").each(function () {
                     if ($(this).prop('checked')) {
-                        let value = $(this).parent().text().replace(/^\s+|\s+$/gm,'');
+                        let value = $(this).parent().text().replace(/^\s+|\s+$/gm, '');
                         filter[attr_name].push(value)
                     }
                 });
@@ -285,8 +301,8 @@
                 if ((value.length === 0) || Object.keys(value).length === 0)
                     delete filter[attr];  // or delete person["age"];
             }
-
-        this.href = this.href+"/?attrs="+JSON.stringify(filter);
+            console.log(filter)
+            this.href = this.href + "/?attrs=" + JSON.stringify(filter);
 
         }
     );

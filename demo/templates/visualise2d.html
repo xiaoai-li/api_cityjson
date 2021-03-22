@@ -9,15 +9,15 @@
 <script type="text/javascript" src="{{ url_for('static', filename='3rd/jquery.js') }}"></script>
 
 
-<div id="map" style="width: 900px; height: 400px"></div>
+<div id="map" style="width: 900px; height: 500px"></div>
 
 <script>
 var bounds = {{ bounds }};
 
 
 var map = L.map('map', {
-    center: [30,0],
-    zoom: 2
+    center: [52, 4.8],
+    zoom: 8
 });
 
 if (bounds){
