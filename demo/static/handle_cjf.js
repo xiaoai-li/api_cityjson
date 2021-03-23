@@ -15,6 +15,7 @@ var spot_light
 var featureDict = {} //contains the features
 var meshes = [] //contains the meshes of the objects
 var geoms = {} //contains the geometries of the objects
+var geoms_as_one=new THREE.Geometry()
 
 // If streaming CityJSONFeatures:
 // Bbox necessary for vertex normalisation (to place them around the origin, threejs coordinate system)
@@ -67,17 +68,15 @@ function initViewer(norm_input) {
         10000 // Far clipping pane
     );
     norm = norm_input
-    console.log(norm)
 
     // Focus camera on middle of dataset
-    camera.position.set(0, 0,2);
-    //camera.lookAt(0,0,0);
+    camera.position.set(0, 0, 2);
+    camera.lookAt(0,0,0);
 
     //renderer for three.js
     renderer = new THREE.WebGLRenderer({
         antialias: true
     });
-    console.log(renderer, renderer.domElement)
     document.getElementById("viewer").appendChild(renderer.domElement);
     renderer.setSize($("#viewer").width(), $("#viewer").height());
     renderer.setClearColor(0xFFFFFF);
@@ -120,6 +119,8 @@ function initViewer(norm_input) {
 }
 
 async function handleNewFeature(feature) {
+    geoms_as_one=new THREE.Geometry()
+
     var featureName = feature["id"];
     //add json to the dict
     featureDict[featureName] = feature;
@@ -128,6 +129,8 @@ async function handleNewFeature(feature) {
     await loadCityObjects(featureName)
 
     renderer.render(scene, camera);
+
+
 }
 
 //convert CityObjects to mesh and add them to the viewer
@@ -138,12 +141,12 @@ async function loadCityObjects(featureName) {
     // Normalise coordinates
     var normGeom = new THREE.Geometry()
     if (norm) {
-        var scale=norm.scale;
-        var translate=norm.translate
-         for (var i = 0; i < json.vertices.length; i++) {
-            json.vertices[i][0] =(json.vertices[i][0]-translate[0])*scale;
-            json.vertices[i][1] =(json.vertices[i][1]-translate[1])*scale;
-            json.vertices[i][2] =(json.vertices[i][2]-translate[2])*scale;
+        var scale = norm.scale;
+        var translate = norm.translate
+        for (var i = 0; i < json.vertices.length; i++) {
+            json.vertices[i][0] = (json.vertices[i][0] - translate[0]) * scale;
+            json.vertices[i][1] = (json.vertices[i][1] - translate[1]) * scale;
+            json.vertices[i][2] = (json.vertices[i][2] - translate[2]) * scale;
         }
 
     } else {
@@ -159,25 +162,20 @@ async function loadCityObjects(featureName) {
             json.vertices[i][1] = normGeom.vertices[i].y;
             json.vertices[i][2] = normGeom.vertices[i].z;
         }
-
     }
 
     //count number of objects
-    var totalco = Object.keys(json.CityObjects).length;
-    console.log("Total # City Objects: ", totalco);
-
-    //create dictionary
-    var children = {}
+    // var totalco = Object.keys(json.CityObjects).length;
+    // console.log("Total # City Objects: ", totalco);
 
     //iterate through all cityObjects
     for (var cityObj in json.CityObjects) {
-        //console.log(cityObj);
-
         try {
             //parse cityObj that it can be displayed in three js
             await parseObject(cityObj, featureName)
 
         } catch (e) {
+            console.log(json)
             console.log("ERROR at creating: " + cityObj);
             continue
         }
@@ -189,15 +187,23 @@ async function loadCityObjects(featureName) {
 
         //create mesh
         //geoms[cityObj].normalize()
-        var _id = featureName + "_" + cityObj
-        var coMesh = new THREE.Mesh(geoms[_id], material)
+        // var _id = featureName + "_" + cityObj
+        // var bufferGeometry = new THREE.BufferGeometry().fromGeometry(geoms[_id])
+        // var coMesh = new THREE.Mesh(geoms[_id], material)
+        // coMesh.name = cityObj;
+        // coMesh.featureName = featureName
+        // coMesh.castShadow = true;
+        // coMesh.receiveShadow = true;
+        // scene.add(coMesh);
+        // meshes.push(coMesh);
+    }
+     var coMesh = new THREE.Mesh(geoms_as_one, material)
         coMesh.name = cityObj;
         coMesh.featureName = featureName
         coMesh.castShadow = true;
         coMesh.receiveShadow = true;
         scene.add(coMesh);
         meshes.push(coMesh);
-    }
 }
 
 //convert json file to viewer-object
@@ -320,6 +326,7 @@ async function parseObject(cityObj, featureName) {
     //add geom to the list
     var _id = featureName + "_" + cityObj
     geoms[_id] = geom
+    geoms_as_one.merge(geom,geom.matrix)
 
     return ("")
 }

@@ -1,9 +1,7 @@
 import json
-from time import sleep
 
 import numpy as np
 from cjio.cityjson import CityJSON
-from pyproj import Transformer
 
 TOPLEVEL = ('Building',
             'Bridge',
@@ -26,11 +24,11 @@ FETCH_SIZE = 10
 CHILDREN = """
             -- get children of original query
             children AS(
-            SELECT unnest(parents) as main_id, obj_id, object,vertices,id
+            SELECT obj_id, object,vertices,id
             FROM city_object
             WHERE obj_id IN (SELECT unnest(children) FROM origin))
 
-            SELECT main_id, obj_id, object,vertices,id FROM origin
+            SELECT obj_id, object,vertices,id FROM origin
             UNION SELECT * FROM children
             ORDER BY id
             """
@@ -63,7 +61,7 @@ def query_items(file_name=None, schema_name=DEFAULT_SCHEMA, limit=10, offset=0):
                 
         -- original query
         WITH origin AS (
-        SELECT obj_id as main_id, obj_id, c.object, vertices,children
+        SELECT obj_id, c.object, vertices,children,c.id
         FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
         WHERE name=%s and type In {}
         limit {} offset {}),
@@ -79,9 +77,9 @@ def query_items(file_name=None, schema_name=DEFAULT_SCHEMA, limit=10, offset=0):
 
     for queried_cityobject in object_cityobjects:
         # todo: add versions
-        id = queried_cityobject[1]
-        object = queried_cityobject[2]
-        vertices = queried_cityobject[3]
+        id = queried_cityobject[0]
+        object = queried_cityobject[1]
+        vertices = queried_cityobject[2]
         add_cityobject(cityjson, id, object, vertices)
 
     cityjson.remove_duplicate_vertices()
@@ -134,72 +132,36 @@ def filter_col(file_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, bbox=None
 
         -- original query
         WITH origin AS (
-        SELECT obj_id as main_id, obj_id, c.object, vertices,children,c.id
+        SELECT obj_id, c.object, vertices,children,c.id
         FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
         WHERE name=%s AND {} {}),
         
         """.format(schema_name, query_bbox, query_attr)
 
     query_cityobjects = query_origin + CHILDREN
-    print(query_cityobjects)
 
     def generator():
         try:
             cur.execute(query_cityobjects, [file_name])
 
             while True:
-                rows = cur.fetchmany(100)
+                rows = cur.fetchmany(50)
                 if not rows:
                     break
-                main_id = rows[0][0]
                 cityjson = CityJSON()
 
-                if len(rows) == 1:
-                    id = rows[0][1]
-                    object = rows[0][2]
-                    vertices = rows[0][3]
-                    add_cityobject(cityjson, id, object, vertices)
-                    cj_feature = {
-                        "type": "CityJSONFeature",
-                        "id": main_id,
-                        "CityObjects": cityjson.j['CityObjects'],
-                        "vertices": cityjson.j['vertices']
-                    }
-
-                    yield cj_feature
-                    break
-
                 for row in rows:
-                    id = row[1]
-                    object = row[2]
-                    vertices = row[3]
-
-                    if row[0] != main_id:
-                        cityjson.remove_duplicate_vertices()
-                        cj_feature = {
-                            "type": "CityJSONFeature",
-                            "id": main_id,
-                            "CityObjects": cityjson.j['CityObjects'],
-                            "vertices": cityjson.j['vertices']
-                        }
-
-                        yield cj_feature
-
-                        cityjson = CityJSON()
-                        main_id = row[0]
-
+                    id = row[0]
+                    object = row[1]
+                    vertices = row[2]
                     add_cityobject(cityjson, id, object, vertices)
 
                 # deal with the last one
-                cityjson = CityJSON()
-                add_cityobject(cityjson, row[1], row[2], row[3])
                 cj_feature = {
                     "type": "CityJSONFeature",
-                    "id": main_id,
                     "CityObjects": cityjson.j['CityObjects'],
                     "vertices": cityjson.j['vertices']
                 }
-
                 yield cj_feature
 
 
@@ -214,7 +176,7 @@ def query_collections(schema_name=DEFAULT_SCHEMA):
     cur = conn.cursor()  # Open a cursor to perform database operations
     collections = []
 
-    query_metadata = """SELECT name,datasetTitle FROM {}.metadata""".format(schema_name)
+    query_metadata = """SELECT name,datasetTitle FROM {}.metadata order by name""".format(schema_name)
 
     cur.execute(query_metadata)
     object_metadata = cur.fetchall()
@@ -234,8 +196,7 @@ def query_feature(file_name=None, schema_name=DEFAULT_SCHEMA, feature_id=None):
 
             -- original query
             WITH origin AS (
-            SELECT obj_id as main_id, obj_id,
-              c.object, vertices,children
+            SELECT obj_id, c.id, c.object, vertices,children
             FROM city_object AS c JOIN metadata AS m ON c.metadata_id=m.id
             WHERE name=%s and obj_id=%s),
             """.format(schema_name)
@@ -248,22 +209,22 @@ def query_feature(file_name=None, schema_name=DEFAULT_SCHEMA, feature_id=None):
     cityjson = CityJSON()
     cityjson.j['type'] = 'CityJSON'
 
-    main_id = object_cityobjects[0][0]
-
     for queried_cityobject in object_cityobjects:
         # todo: add versions
-        id = queried_cityobject[1]
-        object = queried_cityobject[2]
-        vertices = queried_cityobject[3]
+        id = queried_cityobject[0]
+
+        object = queried_cityobject[1]
+        vertices = queried_cityobject[2]
         add_cityobject(cityjson, id, object, vertices)
 
     cityjson.remove_duplicate_vertices()
     cj_feature = {
         "type": "CityJSONFeature",
-        "id": main_id,
+        "id": feature_id,
         "CityObjects": cityjson.j['CityObjects'],
         "vertices": cityjson.j['vertices']
     }
+
     return cj_feature
 
 
@@ -365,7 +326,6 @@ def query_col_transform(file_name=None, schema_name=DEFAULT_SCHEMA):
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
         return
-
 
 
 import psycopg2

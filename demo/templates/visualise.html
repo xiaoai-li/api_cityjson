@@ -18,7 +18,6 @@
 <script type="text/javascript" src="{{ url_for('static', filename='handle_cjf.js') }}"></script>
 <!-- For streaming of dataset into viewer -->
 <script type="text/javascript"
-src="{{ url_for('static', filename='stream_cjc.js') }}"></script>
 
 <!-- Elements for visualisation -->
 <div id="dragger"></div>
@@ -43,12 +42,5 @@ src="{{ url_for('static', filename='stream_cjc.js') }}"></script>
     {% if jitem is defined %}
     var jitem = {{ jitem|tojson }};
     handleNewFeature(jitem);
-    {% endif %}
-
-    // We have a CityJSONCollection that needs to be streamed
-    {% if stream is defined %}
-    var stream = {{ stream|tojson }};
-    streamUrl = {{ url_for('stream', dataset=stream)|tojson }};
-    startStream();
     {% endif %}
 </script>

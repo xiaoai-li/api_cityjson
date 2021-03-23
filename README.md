@@ -94,3 +94,5 @@ direct :(
 - filter_cols add crs
 
 - no z value 
+
+- vectorize

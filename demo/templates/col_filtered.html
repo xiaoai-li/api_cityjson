@@ -54,13 +54,13 @@
 
     #left {
         float: left;
-        width: 50%;
+        width: 35%;
         overflow: auto;
     }
 
     #right {
         float: left;
-        width: 50%;
+        width: 65%;
     }
 
     /* Clear floats after the columns */
@@ -112,6 +112,8 @@
                 var transform_norm={{transform_norm| tojson}}
                 initDocument();
                 initViewer(transform_norm);
+                let then = new Date;
+
             </script>
 
             {% for feature in rows %}
@@ -127,7 +129,10 @@
                     handleNewFeature(feature);
                 </script>
             {% endfor %}
-
+            <script>
+                let now = new Date;
+                console.log((now - then)/ 1000)
+            </script>
 
         </table>
 

@@ -60,7 +60,6 @@ def collection(dataset):
     # -- attr
     re_attrs = request.args.get('attrs', None)
     transform_int, transform_norm = query_col_transform(file_name=dataset)
-    print(re_attrs)
     if re_bbox is not None:
         r = re_bbox.split(',')
 
@@ -88,7 +87,6 @@ def collection(dataset):
         re = request.args.get('f', None)
         if re == 'html' or re is None:
             collections = query_collections()
-            print(meta_attr)
             for each in collections:
                 if each['name'] == dataset:
                     return render_template("collection.html", dataset=each, bounds=json.dumps(bbox_wgs84),
@@ -127,20 +125,21 @@ def item(dataset, featureID):
 
     if re == 'html' or re is None:
         f = query_feature(file_name=dataset, feature_id=featureID)
-        return render_template("item.html", jitem=f, datasetname=dataset)
-    elif re == 'json':
-        f = query_feature(file_name=dataset, feature_id=featureID).j
-        if 'metadata' in f:
-            del f['metadata']
-        if 'version' in f:
-            del f['version']
-        if 'extensions' in f:
-            del f['extensions']
-        f['type'] = 'CityJSONFeature'
-        f['id'] = featureID
-        return json.dumps(f)
-    else:
-        return JINVALIDFORMAT
+        print(f)
+        return render_template("item.html", jitem=f, datasetname=dataset, theid=featureID)
+    # elif re == 'json':
+    #     f = query_feature(file_name=dataset, feature_id=featureID).j
+    #     if 'metadata' in f:
+    #         del f['metadata']
+    #     if 'version' in f:
+    #         del f['version']
+    #     if 'extensions' in f:
+    #         del f['extensions']
+    #     f['type'] = 'CityJSONFeature'
+    #     f['id'] = featureID
+    #     return json.dumps(f)
+    # else:
+    #     return JINVALIDFORMAT
 
 
 @app.errorhandler(404)
@@ -154,42 +153,6 @@ def getcm(filename):
         return None
     f = open(p)
     return cityjson.reader(file=f, ignore_duplicate_keys=True)
-
-
-#
-# @app.route('/collections/<dataset>/visualise/', methods=['GET'])
-# def visualise(dataset):
-#     for each in jindex['collections']:
-#         if each['id'] == dataset:
-#             return render_template("visualise.html", stream=dataset)
-#     return JINVALIDFORMAT
-
-#
-# @app.route('/stream/', methods=['GET'])
-# def stream():
-#     dataset = request.args.get('dataset', None)
-#     f = open(PATHDATASETS + dataset + ".json", "r")
-#     cj = json.loads(f.read())
-#
-#     # line-delimited JSON generator
-#     def generate():
-#         if cj['type'] == "CityJSONCollection":
-#             for k, v in cj.items():
-#                 if k == "features":
-#                     for feature in cj[k]:
-#                         feature = str(feature)
-#                         yield '{}\n'.format(feature)
-#                 else:
-#                     yield '{}\n'.format({k: v})
-#         elif cj['type'] == "CityJSON":
-#             cm = str(cj)
-#             yield '{}\n'.format(cm)
-#
-#     f.close()
-#     return app.response_class(generate(), mimetype='application/json')
-
-
-#
 
 
 if __name__ == '__main__':
