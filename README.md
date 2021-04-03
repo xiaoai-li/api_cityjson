@@ -10,12 +10,12 @@
 __Watch out, cjio must use the 'develop' branch otherwise nothing will work__
 
 ```bash
-$ env FLASK_APP=app.py flask run
+$ env FLASK_APP=main.py flask run
 ```
 
 In debug mode:
 ```bash
-$ env FLASK_APP=app.py FLASK_ENV=development flask run
+$ env FLASK_APP=main.py FLASK_ENV=development flask run
 ```
 
 ## example of WFS3 URL
@@ -96,3 +96,50 @@ direct :(
 - no z value 
 
 - vectorize
+
+- index later indexing. 
+
+- delete index
+
+-     geometry.faces[ 0 ].color.setHex( Math.random() * 0xffffff );
+-       do not need to store the normalization  (by bounding box))
+
+
+- add more operator 
+    Logical operators:
+
+and
+
+or
+
+not
+
+Comparison operators:
+
+
+
+
+-- docker run --rm williamyeh/wrk -t2 -c5 -d5s -H 'Host: example.com' --timeout 2s http://192.168.1.101:5000
+
+ --column-inserts
+ pg_dump.exe -U postgres -d cityjson -n new_schema --column-inserts > C:\Users\70664\Desktop\new_schema.dmp
+
+
+## For google cloud platyform 
+gcloud projects create api-benchmarking  --set-as-default
+gcloud beta billing projects link api-cityjson-benchmarking   --billing-account 0136FF-8D2BF4-C53A7D
+gcloud app create --project=tokyo-list-269410
+
+gcloud beta billing projects link tokyo-list-269410   --billing-account 0136FF-8D2BF4-C53A7D
+gcloud config set project my-project
+
+
+tokyo-list-269410:europe-west4:cityjson
+threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(5, 100,os.environ['PSYCOPG2_POSTGRESQL_URI'])
+### todo: during benchmarking
+database schema: referencesystem  set to int.
+                 remove transform_norm
+
+### comformance checking
+
+## Benchamarking
