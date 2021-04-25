@@ -1,0 +1,2 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1619101328328,1003106,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897326,155,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/,758939,0,2

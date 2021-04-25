@@ -1,0 +1,6 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1618930699667,14,HTTP Request,200,OK,Thread Group 1-1,text,true,,1362,153,1,1,http://127.0.0.1:5000/collections/30ez1/items/0629100000014707/,14,0,1
+1618930699682,4,HTTP Request,200,OK,Thread Group 1-1,text,true,,1362,153,1,1,http://127.0.0.1:5000/collections/30ez1/items/0629100000014707/,3,0,0
+1618930699686,4,HTTP Request,200,OK,Thread Group 1-1,text,true,,1362,153,1,1,http://127.0.0.1:5000/collections/30ez1/items/0629100000014707/,4,0,0
+1618930699690,4,HTTP Request,200,OK,Thread Group 1-1,text,true,,1362,153,1,1,http://127.0.0.1:5000/collections/30ez1/items/0629100000014707/,4,0,0
+1618930699694,4,HTTP Request,200,OK,Thread Group 1-1,text,true,,1362,153,1,1,http://127.0.0.1:5000/collections/30ez1/items/0629100000014707/,4,0,1

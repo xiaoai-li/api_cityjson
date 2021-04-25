@@ -10,12 +10,12 @@
 __Watch out, cjio must use the 'develop' branch otherwise nothing will work__
 
 ```bash
-$ env FLASK_APP=main.py flask run
+$ env FLASK_APP=main-db.py flask run
 ```
 
 In debug mode:
 ```bash
-$ env FLASK_APP=main.py FLASK_ENV=development flask run
+$ env FLASK_APP=main-db.py FLASK_ENV=development flask run
 ```
 
 ## example of WFS3 URL
@@ -136,10 +136,7 @@ gcloud config set project my-project
 
 tokyo-list-269410:europe-west4:cityjson
 threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(5, 100,os.environ['PSYCOPG2_POSTGRESQL_URI'])
-### todo: during benchmarking
-database schema: referencesystem  set to int.
-                 remove transform_norm
 
-### comformance checking
 
-## Benchamarking
+to do:
+scope, not consider "extensions": {}, "appearance": {}, "geometry-templates": {} in CityJSON

@@ -1,0 +1,11 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1617889452100,11338,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,11302,0,1
+1617889463438,11373,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,11304,0,1
+1617889474811,11132,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,11109,0,1
+1617889485944,11313,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,11223,0,1
+1617889497257,10069,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,10029,0,1
+1617889507327,11236,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,11160,0,0
+1617889518563,10980,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,10930,0,1
+1617889529543,10931,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,10860,0,1
+1617889540474,10268,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,10224,0,1
+1617889550742,11708,HTTP Request,200,OK,Thread Group 1-1,text,true,,11053144,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22BB07%22%5D%7D,11669,0,1

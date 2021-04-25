@@ -7,10 +7,10 @@ PATHDATASETS = '../../data/'
 DEFAULT_DB = 'benchmarking'
 DEFAULT_SCHEMA = 'first'
 params_dic = {
-    "host": "34.90.3.135",
+    "host": "localhost",
     "database": DEFAULT_DB,
     "user": "postgres",
-    "password": "376376"
+    "password": "1234"
 }
 
 

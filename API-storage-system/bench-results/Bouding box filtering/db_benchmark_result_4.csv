@@ -1,0 +1,11 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1617885510418,37250,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897603,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",36367,0,30
+1617885547674,34918,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897759,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",34213,0,0
+1617885582593,37835,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897476,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",37133,0,1
+1617885620428,36908,HTTP Request,200,OK,Thread Group 1-1,text,true,,292898116,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",35773,0,1
+1617885657337,37678,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897566,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",36558,0,1
+1617885695016,36421,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897354,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",35434,0,1
+1617885731439,35459,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897472,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",34901,0,2
+1617885766897,37581,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897338,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",36793,0,1
+1617885804478,37306,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897494,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",36541,0,1
+1617885841784,37441,HTTP Request,200,OK,Thread Group 1-1,text,true,,292897882,183,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8,46,9,48&epsg=4326%20",36401,0,1

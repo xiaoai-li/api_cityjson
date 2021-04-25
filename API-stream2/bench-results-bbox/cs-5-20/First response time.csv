@@ -1,0 +1,6 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1618778308169,5397,HTTP Request,200,OK,Thread Group 1-1,text,true,,2421,204,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326",49,0,1
+1618778313565,5372,HTTP Request,200,OK,Thread Group 1-1,text,true,,2421,204,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326",44,0,1
+1618778318939,5370,HTTP Request,200,OK,Thread Group 1-1,text,true,,2421,204,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326",44,0,0
+1618778324308,5385,HTTP Request,200,OK,Thread Group 1-1,text,true,,2421,204,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326",44,0,1
+1618778329694,5371,HTTP Request,200,OK,Thread Group 1-1,text,true,,2421,204,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326",43,0,1

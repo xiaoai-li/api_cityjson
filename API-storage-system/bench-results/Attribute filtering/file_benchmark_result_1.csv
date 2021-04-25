@@ -1,0 +1,11 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1617889232482,10481,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,10481,0,1
+1617889242963,10632,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,10632,0,1
+1617889253596,10729,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,10729,0,0
+1617889264326,10776,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,10776,0,0
+1617889275103,10011,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,10011,0,1
+1617889285114,11177,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,11176,0,1
+1617889296290,9838,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,9838,0,0
+1617889306129,11242,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,11242,0,0
+1617889317371,10029,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,10029,0,1
+1617889327401,10059,HTTP Request,200,OK,Thread Group 1-1,text,true,,21490,198,1,1,http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?attrs=%7B%22class%22%3A%5B%22EO03%22%5D%7D,10058,0,0

@@ -135,3 +135,10 @@ dmypy.json
 *.json
 *.sql
 *.sql
+
+
+# datasets
+data/
+data_pdok/
+data_sqlite/
+datasets/

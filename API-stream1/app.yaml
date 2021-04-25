@@ -1,0 +1,4 @@
+runtime: python39
+
+env_variables:
+    PSYCOPG2_POSTGRESQL_URI: postgresql://postgres:376376@/benchmarking?host=/cloudsql/tokyo-list-269410:europe-west4:cityjson

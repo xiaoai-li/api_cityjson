@@ -1,0 +1,6 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1618811937356,930,HTTP Request,200,OK,Thread Group 1-1,text,true,,2323,191,1,1,http://127.0.0.1:5000/collections/37en2_volledig/items/?attrs=%7B%22type%22%3A%5B%22Building%22%5D%7D,12,0,1
+1618811938286,835,HTTP Request,200,OK,Thread Group 1-1,text,true,,2323,191,1,1,http://127.0.0.1:5000/collections/37en2_volledig/items/?attrs=%7B%22type%22%3A%5B%22Building%22%5D%7D,3,0,1
+1618811939121,844,HTTP Request,200,OK,Thread Group 1-1,text,true,,2323,191,1,1,http://127.0.0.1:5000/collections/37en2_volledig/items/?attrs=%7B%22type%22%3A%5B%22Building%22%5D%7D,3,0,0
+1618811939966,834,HTTP Request,200,OK,Thread Group 1-1,text,true,,2323,191,1,1,http://127.0.0.1:5000/collections/37en2_volledig/items/?attrs=%7B%22type%22%3A%5B%22Building%22%5D%7D,3,0,0
+1618811940801,829,HTTP Request,200,OK,Thread Group 1-1,text,true,,2323,191,1,1,http://127.0.0.1:5000/collections/37en2_volledig/items/?attrs=%7B%22type%22%3A%5B%22Building%22%5D%7D,3,0,0

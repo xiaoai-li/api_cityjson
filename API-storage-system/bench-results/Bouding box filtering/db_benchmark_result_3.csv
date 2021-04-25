@@ -1,0 +1,11 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1617884841870,24672,HTTP Request,200,OK,Thread Group 1-1,text,true,,203587946,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",24044,0,1
+1617884866543,24375,HTTP Request,200,OK,Thread Group 1-1,text,true,,203587409,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",23722,0,0
+1617884890919,23206,HTTP Request,200,OK,Thread Group 1-1,text,true,,203587110,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",22714,0,0
+1617884914125,26164,HTTP Request,200,OK,Thread Group 1-1,text,true,,203588055,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",25801,0,1
+1617884940290,24087,HTTP Request,200,OK,Thread Group 1-1,text,true,,203587449,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",23775,0,0
+1617884964379,23737,HTTP Request,200,OK,Thread Group 1-1,text,true,,203587037,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",23406,0,0
+1617884988115,24663,HTTP Request,200,OK,Thread Group 1-1,text,true,,203587042,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",24256,0,1
+1617885012778,23451,HTTP Request,200,OK,Thread Group 1-1,text,true,,203587031,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",23123,0,2
+1617885036229,23019,HTTP Request,200,OK,Thread Group 1-1,text,true,,203587555,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",22709,0,1
+1617885059248,24063,HTTP Request,200,OK,Thread Group 1-1,text,true,,203586993,207,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326%20",23735,0,1

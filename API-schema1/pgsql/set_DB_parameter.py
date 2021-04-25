@@ -87,18 +87,10 @@ def add_indices(schema_name='addcolumns'):
     command_addindices = """
         SET search_path to {}, public;
         -- indexes on foreign keys
-        CREATE INDEX ON cityobject(cityjson_id); 
 
-        -- geometries
-        CREATE INDEX ON cityobject USING GIST(bbox);
-        CREATE INDEX ON cityjson USING GIST (bbox);
-        
-        -- others
-         CREATE INDEX ON cityjson(name); 
-         CREATE INDEX ON cityjson(referenceSystem); 
         
         -- jsonb
-        CREATE INDEX ON city_object((attributes->>'type'));
+        CREATE INDEX ON cityobject((attributes->>'bouwjaar'));
 
          """.format(schema_name)
     cur.execute(command_addindices)
@@ -108,4 +100,4 @@ def add_indices(schema_name='addcolumns'):
 
 # create_database(DEFAULT_DB)
 create_schema(DEFAULT_DB, DEFAULT_SCHEMA)
-# add_indices(DEFAULT_DB)
+# add_indices(DEFAULT_SCHEMA)

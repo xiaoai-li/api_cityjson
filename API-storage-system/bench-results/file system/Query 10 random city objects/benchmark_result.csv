@@ -1,0 +1,6 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1618988429911,336977,HTTP Request,200,OK,Thread Group 1-1,text,true,,91158,166,1,1,http://127.0.0.1:5000/collections/37en2_volledignoLandUse/items/?limit=10%20,336941,0,1
+1618988766926,323912,HTTP Request,200,OK,Thread Group 1-1,text,true,,91158,166,1,1,http://127.0.0.1:5000/collections/37en2_volledignoLandUse/items/?limit=10%20,323877,0,13
+1618989090878,280109,HTTP Request,200,OK,Thread Group 1-1,text,true,,91158,166,1,1,http://127.0.0.1:5000/collections/37en2_volledignoLandUse/items/?limit=10%20,280075,0,10
+1618989371020,320075,HTTP Request,200,OK,Thread Group 1-1,text,true,,91158,166,1,1,http://127.0.0.1:5000/collections/37en2_volledignoLandUse/items/?limit=10%20,320039,0,15
+1618989691122,317233,HTTP Request,200,OK,Thread Group 1-1,text,true,,91158,166,1,1,http://127.0.0.1:5000/collections/37en2_volledignoLandUse/items/?limit=10%20,317200,0,13

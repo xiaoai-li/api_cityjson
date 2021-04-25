@@ -1,0 +1,6 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1619165375612,53037,HTTP Request,200,OK,Thread Group 1-1,text,true,,69843049,185,1,1,"http://127.0.0.1:5000/collections/30gz1/items/?bbox=4.30595,52.04257,4.35814,52.08035&epsg=4326",33716,0,0
+1619165428648,53143,HTTP Request,200,OK,Thread Group 1-1,text,true,,69843049,185,1,1,"http://127.0.0.1:5000/collections/30gz1/items/?bbox=4.30595,52.04257,4.35814,52.08035&epsg=4326",33722,0,1
+1619165481791,53024,HTTP Request,200,OK,Thread Group 1-1,text,true,,69843049,185,1,1,"http://127.0.0.1:5000/collections/30gz1/items/?bbox=4.30595,52.04257,4.35814,52.08035&epsg=4326",33871,0,0
+1619165534816,52535,HTTP Request,200,OK,Thread Group 1-1,text,true,,69843049,185,1,1,"http://127.0.0.1:5000/collections/30gz1/items/?bbox=4.30595,52.04257,4.35814,52.08035&epsg=4326",33331,0,0
+1619165587351,52085,HTTP Request,200,OK,Thread Group 1-1,text,true,,69843049,185,1,1,"http://127.0.0.1:5000/collections/30gz1/items/?bbox=4.30595,52.04257,4.35814,52.08035&epsg=4326",33094,0,1

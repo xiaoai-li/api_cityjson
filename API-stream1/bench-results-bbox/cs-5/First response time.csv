@@ -1,0 +1,3 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1618726164045,12348,HTTP Request,200,OK,Thread Group 1-1,text,true,,4519,204,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326",57,0,1
+1618726176395,3742,HTTP Request,Non HTTP response code: java.net.SocketException,Non HTTP response message: Socket closed,Thread Group 1-1,text,false,,1852,0,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.47424,47.36766,8.60916,47.41647&epsg=4326",47,0,2

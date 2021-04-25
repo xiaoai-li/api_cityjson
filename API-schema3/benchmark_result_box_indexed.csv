@@ -1,0 +1,11 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1618473422654,656,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,628,0,66
+1618473423310,547,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,519,0,0
+1618473423857,541,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,513,0,0
+1618473424398,541,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,514,0,0
+1618473424940,542,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,513,0,0
+1618473425482,548,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,520,0,0
+1618473426030,543,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,516,0,0
+1618473426573,539,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,512,0,0
+1618473427112,546,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,517,0,0
+1618473427659,544,VM Runnning ,200,OK,JDBC USERS 1-1,text,true,,6906523,0,1,1,null,516,0,0

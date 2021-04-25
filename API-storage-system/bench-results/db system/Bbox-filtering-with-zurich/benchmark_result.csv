@@ -1,0 +1,5 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1619164416670,64894,HTTP Request,200,OK,Thread Group 1-1,text,true,,50120516,204,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.51492,47.37871,8.55200,47.39684&epsg=4326",51653,0,1
+1619164481565,66050,HTTP Request,200,OK,Thread Group 1-1,text,true,,50120516,204,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.51492,47.37871,8.55200,47.39684&epsg=4326",52840,0,0
+1619164547615,67302,HTTP Request,200,OK,Thread Group 1-1,text,true,,50120516,204,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.51492,47.37871,8.55200,47.39684&epsg=4326",54081,0,1
+1619164614917,66366,HTTP Request,Non HTTP response code: java.net.SocketException,Non HTTP response message: Socket closed,Thread Group 1-1,text,false,,1952,0,1,1,"http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.51492,47.37871,8.55200,47.39684&epsg=4326",54221,0,1
