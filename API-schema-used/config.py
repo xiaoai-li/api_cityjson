@@ -2,10 +2,10 @@ import sys
 
 import psycopg2
 
-PATHDATASETS = '../../data/'
+PATHDATASETS = '../../data_pdok/'
 
-DEFAULT_DB = 'benchmarking'
-DEFAULT_SCHEMA = 'stream'
+DEFAULT_DB = 'cityjson'
+DEFAULT_SCHEMA = 'api'
 params_dic = {
     "host": "localhost",
     "database": DEFAULT_DB,

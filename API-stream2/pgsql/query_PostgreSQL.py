@@ -172,7 +172,6 @@ def __dumps(cur):
         cityjson = CityJSON()
         for row in rows:
             if row[0] != main_id:
-                # some vertices are 111111111.0, 22222222222222.0 /presicion=0
                 cityjson.j['transform'] = []
                 cityjson.remove_duplicate_vertices()
                 cj_feature = {

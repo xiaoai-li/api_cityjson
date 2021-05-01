@@ -3,9 +3,29 @@ import os
 import sys
 
 import numpy as np
+import pyproj
+from cjio.cityjson import CityJSON
 
 sys.path.append('../')
 from config import connect, PATHDATASETS, DEFAULT_SCHEMA
+
+
+def update_geom_indices(a, offset):
+    for i, each in enumerate(a):
+        if isinstance(each, list):
+            update_geom_indices(each, offset)
+        else:
+            if each is not None:
+                a[i] = each + offset
+
+
+def add_cityobject(cityjson, id, object, vertices):
+    offset = len(cityjson.j["vertices"])
+    cityjson.j["vertices"] += vertices
+    cityjson.j["CityObjects"][id] = object
+
+    for g in cityjson.j['CityObjects'][id]['geometry']:
+        update_geom_indices(g["boundaries"], offset)
 
 
 def from_index_to_vertex(boundaries, verticesList):
@@ -61,19 +81,14 @@ def insert_cityjson(file_name, schema_name):
 
     count_cityobjects = len(data['CityObjects'])
     # store cityjson table
-    metadata = {'type': data['type'], 'version': data['version']}
-    if 'metadata' in data.keys():
-        for key in data['metadata']:
-            metadata[key] = data['metadata'][key]
-
+    metadata = None
     ref_system = None  # If no SRID is specified the unknown spatial reference system (SRID 0) is used.
-    data_title = None
-
+    version = data['version']
     if 'metadata' in data.keys():
+        metadata=data['metadata']
         if 'referenceSystem' in data['metadata']:
             ref_system = int(data['metadata']['referenceSystem'].split("::")[-1])
-        if 'datasetTitle' in data['metadata']:
-            data_title = data['metadata']['datasetTitle']
+
 
     # transform back
     if 'transform' not in data.keys():
@@ -110,13 +125,14 @@ def insert_cityjson(file_name, schema_name):
         else:
             vertices = (np.array(vertices) * scale + translate)
             x, y, z = zip(*vertices)
-            bbox2d = [round(min(x), 5), round(min(y), 5), round(max(x), 5), round(max(y), 5)]
+            bbox2d = [min(x), min(y), max(x), max(y)]
         bbox2ds.append(bbox2d)
     bbox2ds = np.array(bbox2ds)
     # prepare tiles
     pts_xy = np.array(np.array(data["vertices"]) * scale + translate).T[:2]
     min_xy = pts_xy.min(axis=1)
     max_xy = pts_xy.max(axis=1)
+
 
     # update parents of multi-part buildings
     for parent_id in parent_ids:
@@ -128,27 +144,23 @@ def insert_cityjson(file_name, schema_name):
         parent_index = obj_ids.index(parent_id)
         bbox2ds[parent_index] = parent_bbox2d
 
+    p_to = pyproj.CRS("epsg:4326")
+    p_from = pyproj.CRS("epsg:" + str(ref_system))
+    transformer = pyproj.Transformer.from_crs(p_from, p_to, always_xy=True)
+    min_xy_4236 = transformer.transform(*min_xy)
+    max_xy_4236 = transformer.transform(*max_xy)
+
+
     if ref_system:
         insert_metadata = """
         SET search_path TO {}, public; 
         INSERT INTO {}.cityjson 
-        (name, referenceSystem, bbox, datasetTitle, metadata,transform) 
-        VALUES ( %s, %s, %s, %s, %s,%s)""" \
-            .format(schema_name, schema_name)
+        (name, referenceSystem, bbox, version, metadata,transform) 
+        VALUES ( %s, %s, '(({}, {}), ({}, {}))', %s, %s,%s)""" \
+            .format(schema_name, schema_name, *min_xy_4236,*max_xy_4236)
         cur.execute(insert_metadata,
-                    (file_name, ref_system,
-                     [round(min_xy[0], 5), round(min_xy[1], 5), round(max_xy[0], 5), round(max_xy[1], 5)], data_title,
-                     json.dumps(data['metadata']),
+                    (file_name, ref_system, version, json.dumps(metadata),
                      json.dumps(data['transform'])))
-    else:
-        insert_metadata = """
-        SET search_path TO {}, public; 
-        INSERT INTO {}.cityjson 
-        (name, datasetTitle, metadata, transform) 
-        VALUES ( %s, %s, %s, %s)""" \
-            .format(schema_name, schema_name, )
-        cur.execute(insert_metadata,
-                    (file_name, data_title, json.dumps(data['metadata']), json.dumps(data['transform'])))
 
     conn.commit()
 
@@ -166,15 +178,13 @@ def insert_cityjson(file_name, schema_name):
             print('The insertion has be finished ', finished_rate100, '%.')
         cityobject = data['CityObjects'][obj_id]
         vertices = separate_vertices[obj_index]
+        cityjson = CityJSON()
+
 
         if 'children' in cityobject.keys():
             children = cityobject['children']
-            for child_id in children:
-                insert_relation = """
-                INSERT INTO parent_children (parent_id,child_id,cityjson_id)
-                VALUES (%s, %s,currval('cityjson_id_seq'))
-                """.format()
-                cur.execute(insert_relation,(obj_id,child_id))
+            for child in children:
+                add_cityobject(cityjson, child, data['CityObjects'][child], separate_vertices[obj_ids.index(child)])
 
         attributes = {}
         if 'attributes' in cityobject.keys():
@@ -188,26 +198,29 @@ def insert_cityjson(file_name, schema_name):
                     meta_attr[key] = [attributes[key]]
 
         meta_attr['type'].append(cityobject['type'])
-        bbox2d = list(bbox2ds[obj_index])
+        bbox2d = bbox2ds[obj_index]
+        min_xy_4236 = transformer.transform(bbox2d[0], bbox2d[1])
+        max_xy_4236 = transformer.transform(bbox2d[2], bbox2d[3])
+
+        cityjson.remove_duplicate_vertices()
+        add_cityobject(cityjson, obj_id, cityobject, vertices)
+
+        cj_feature = {
+            "type": "CityJSONFeature",
+            "id": obj_id,
+            "CityObjects": cityjson.j['CityObjects'],
+            "vertices": cityjson.j['vertices']
+        }
+
 
         if ref_system:
             insert_cityobjects = """
-            INSERT INTO cityobject (obj_id,bbox, type,attributes, vertices, object, cityjson_id)
-            VALUES (%s, %s,%s, %s, %s,%s,currval('cityjson_id_seq'))
-            """.format()
-            cur.execute(insert_cityobjects,
-                        (obj_id, bbox2d, cityobject['type'], json.dumps(attributes),
-                         json.dumps(vertices),
-                         json.dumps(cityobject)))
-        else:
-            insert_cityobjects = """
-            INSERT INTO cityobject (obj_id,type, attributes, vertices, object, cityjson_id)
-            VALUES (%s, %s ,%s, %s,  %s,currval('cityjson_id_seq'))
-            """
+            INSERT INTO cityobject (obj_id,type,bbox, attributes, feature, cityjson_id)
+            VALUES (%s, %s,'(({}, {}), ({}, {}))',%s,%s,currval('cityjson_id_seq'))
+            """.format(*min_xy_4236,*max_xy_4236)
             cur.execute(insert_cityobjects,
                         (obj_id, cityobject['type'], json.dumps(attributes),
-                         json.dumps(vertices),
-                         json.dumps(cityobject)))
+                         json.dumps(cj_feature)))
 
         conn.commit()
 
@@ -237,15 +250,10 @@ def insert_cityjson(file_name, schema_name):
     print("""The insertion of "{}" in schema "{}" is done""".format(file_name, schema_name))
 
 
-#
-#
-# insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
-# insert_cityjson('denhaag', DEFAULT_SCHEMA)
-# insert_cityjson('delft', DEFAULT_SCHEMA)
-# insert_cityjson('vienna', DEFAULT_SCHEMA)
-# insert_cityjson('montreal', DEFAULT_SCHEMA)
-insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
-
+# insert_cityjson('37en2_volledig', DEFAULT_SCHEMA)
+# # #
+# # #
+# # #
 # insert_cityjson('37en1', DEFAULT_SCHEMA)
 # insert_cityjson('37en2', DEFAULT_SCHEMA)
 # insert_cityjson('37ez1', DEFAULT_SCHEMA)
@@ -339,12 +347,13 @@ insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
 # insert_cityjson('25an1', DEFAULT_SCHEMA)
 # insert_cityjson('24fn2', DEFAULT_SCHEMA)
 # insert_cityjson('30ez1', DEFAULT_SCHEMA)
-# insert_cityjson('30fn1', DEFAULT_SCHEMA)
-# insert_cityjson('38an1', DEFAULT_SCHEMA)
-# insert_cityjson('32cn1', DEFAULT_SCHEMA)
-# insert_cityjson('32cz1', DEFAULT_SCHEMA)
-# insert_cityjson('32cz2', DEFAULT_SCHEMA)
-# insert_cityjson('39an2', DEFAULT_SCHEMA)
-# insert_cityjson('31fz1', DEFAULT_SCHEMA)
 #
 #
+# insert_cityjson('3-20-DELFSHAVEN', DEFAULT_SCHEMA)
+# insert_cityjson('denhaag', DEFAULT_SCHEMA)
+# insert_cityjson('delft', DEFAULT_SCHEMA)
+# insert_cityjson('vienna', DEFAULT_SCHEMA)
+# insert_cityjson('montreal', DEFAULT_SCHEMA)
+# insert_cityjson('Zurich_Building_LoD2_V10', DEFAULT_SCHEMA)
+# import pymorton as pm
+# mortoncode = pm.interleave(100, 200)

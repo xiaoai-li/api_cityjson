@@ -1,0 +1,165 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<style>
+    #viewer {
+        height: 100%;
+    }
+
+
+</style>
+
+
+<!-- 3rd party code -->
+<!-- script src="https://threejs.org/build/three.js"></script -->
+<script type="text/javascript" src="{{ url_for('static', filename='3rd/three.min.js') }}"></script>
+
+<script type="text/javascript" src="{{ url_for('static', filename='3rd/jquery.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='3rd/earcut.js') }}"></script>
+
+<!-- Scripts for loading CityObjects -->
+<script type="text/javascript" src="{{ url_for('static', filename='functions.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='OrbitControls.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='handle_cjf.js') }}"></script>
+
+<style>
+    .h2 {
+        height: 80px;
+    }
+
+    .h3 {
+        height: 80px;
+    }
+
+    .section {
+        height: 80px;
+    }
+
+    .container {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .row {
+        height: calc(100% - 320px);
+        position: relative;
+    }
+
+    .column {
+        position: relative;
+        float: left;
+        width: 50%;
+        height: 100%;
+    }
+
+    #left {
+        float: left;
+        width: 35%;
+        overflow: auto;
+    }
+
+    #right {
+        float: left;
+        width: 65%;
+    }
+
+    /* Clear floats after the columns */
+    .row:after {
+        height: 100%;
+        content: "";
+        display: table;
+        clear: both;
+    }
+
+    .footer {
+        height: 80px;
+    }
+
+
+</style>
+<div class="section bg-gray">
+    <ul class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('root') }}">/ home</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('collections') }}">collections</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('collections') }}{{ datasetname }}">{{ datasetname }}</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('collections') }}{{ datasetname }}/items/">Items</a>
+        </li>
+    </ul>
+</div>
+
+<div id="row" class="row">
+    <div class="column" id="left">
+        <h2>{{ datasetname }}</h2>
+        <table class="table table-striped table-hover">
+            <tr>
+                <th>id</th>
+                <th>type</th>
+                {% for feature in rows %}
+
+                {% if 'CityObjects' in feature %}
+                {% for key, value in feature["CityObjects"].items() %}
+            <tr>
+                <td><a href="{{ url_for('collections') }}{{ datasetname }}/items/{{ key }}/">{{ key }}</a></td>
+                <td>{{value['type'] }}</td>
+            </tr>
+
+            {% endfor %}
+            {% endif %}
+            <script>
+                var feature = {{feature | tojson}}
+                if (feature['type'] === 'CityJSON') {
+                    geoExtent = feature['metadata']['geographicalExtent'];
+                    min_xyz = [geoExtent[0], geoExtent[1], geoExtent[2]]
+                    max_xyz = [geoExtent[3], geoExtent[4], geoExtent[5]]
+                    transform = feature['transform'];
+
+                    var scale = transform.scale;
+                    var translate = transform.translate
+                    var center=[0,0,0]
+
+                    // construct normalization
+                    for (var i = 0; i < 3; i++)
+                        min_xyz[i] = Math.floor((min_xyz[i] - translate[i]) / scale[i])
+
+                    for (var i = 0; i < 3; i++) {
+                        max_xyz[i] = Math.floor((max_xyz[i] - translate[i]) / scale[i])
+                        center[i] = (max_xyz[i]-min_xyz[i]) / 2
+                    }
+
+                    console.log(center)
+                    s = 1.0 / Math.max(...center)
+                    transform_norm = {"scale": s, "translate": center}
+
+                    var viewer = $("        <div class=\"column\" id=\"right\">\n" +
+                        "            <div id=\"dragger\"></div>\n" +
+                        "            <div id=\"viewer\"></div>\n" +
+                        "        </div>");
+
+                    $('#row').append(viewer);
+                    initDocument();
+
+                    console.log(transform_norm)
+                    initViewer(transform_norm);
+
+                } else
+                    handleNewFeature(feature);
+            </script>
+            {% endfor %}
+
+
+        </table>
+
+    </div>
+
+</div>
+
+
+{% endblock %}
+

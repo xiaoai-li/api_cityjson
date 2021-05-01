@@ -1,8 +1,9 @@
+import re
 import sys
 
+import pyproj
 import ujson
 from cjio.cityjson import CityJSON
-from pyproj import Proj, transform
 
 sys.path.append('../')
 from config import params_dic, DEFAULT_SCHEMA
@@ -22,7 +23,10 @@ TOPLEVEL = ('Building',
             'Tunnel',
             'WaterBody')
 
-CHUNK_SIZE = 10000
+CHUNK_SIZE = 1000
+
+IF_FIRST = True
+# IF_FIRST=True
 
 CHILDREN = """
             -- get children of original query
@@ -83,16 +87,16 @@ def filter_col(file_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, bbox=None
         return None
 
     if epsg and bbox:
-        if epsg != cm_info[0][0]:
-            inProj = Proj("+init=EPSG:" + str(epsg))
-            outProj = Proj("+init=EPSG:" + str(cm_info[0][0]))
-            min_xy = transform(inProj, outProj, bbox[0], bbox[1])
-            max_xy = transform(inProj, outProj, bbox[2], bbox[3])
-            bbox = [min_xy[0], min_xy[1], max_xy[0], max_xy[1]]
+        if epsg != 4326:
+            p_to = pyproj.CRS("epsg:4326")
+            p_from = pyproj.CRS("epsg:" + str(epsg))
+            transformer = pyproj.Transformer.from_crs(p_from, p_to, always_xy=True)
+            min_xy = transformer.transform(bbox[0], bbox[1])
+            max_xy = transformer.transform(bbox[2], bbox[3])
 
         query_bbox = """
-        not (bbox[1]>{} or bbox[3]<{} or bbox[2]>{} or bbox[4]<{})
-        """.format(bbox[2], bbox[0], bbox[3], bbox[1])
+        bbox&& box '(({}, {}),({}, {}))'
+        """.format(min_xy[0], min_xy[1], max_xy[0], max_xy[1])
     else:
         query_bbox = "True "
 
@@ -123,7 +127,7 @@ def filter_col(file_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, bbox=None
                         attr, min, attr, max)
 
     else:
-        query_attr = "AND True "
+        query_attr = " and True "
 
     def generator():
         try:
@@ -131,25 +135,14 @@ def filter_col(file_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, bbox=None
             query_cityobjects = """
                 SET search_path to {}, public;
 
-                -- original query
-                WITH origin AS (
-		        SELECT obj_id as main_id, obj_id, object,vertices
-                FROM cityobject 
-                WHERE cityjson_id=%s AND {} {}),
-
-                -- get children of original query
-                children AS(
-                SELECT m.parent_id as main_id,obj_id, object,vertices
-                FROM cityobject AS c JOIN parent_children AS m ON c.obj_id=m.child_id
-                WHERE c.cityjson_id=%s and parent_id IN (SELECT obj_id FROM origin))
-
-                SELECT * FROM origin
-                WHERE obj_id not in (SELECT obj_id FROM children)
-                UNION SELECT * FROM children
-                ORDER BY main_id
-                """.format(schema_name, query_bbox, query_attr)
-            cur.execute(query_cityobjects, [cityjson_id, cityjson_id])
+                SELECT feature
+                FROM cityobject
+                WHERE cityjson_id=%s {} AND type In {}
+                and {} 
+                """.format(schema_name, query_attr, TOPLEVEL, query_bbox)
+            cur.execute(query_cityobjects, [cityjson_id,])
             yield from __dumps(cur)
+
         finally:
             threaded_postgreSQL_pool.putconn(conn)
 
@@ -157,40 +150,20 @@ def filter_col(file_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, bbox=None
 
 
 def __dumps(cur):
-    response=""
+    cur.arraysize = CHUNK_SIZE
     while True:
-        rows = cur.fetchall()
+        rows = cur.fetchmany()
         if not rows:
             break
-        main_id = rows[0][0]
-        cityjson = CityJSON()
-        for row in rows:
-            if row[0] != main_id:
-                cityjson.remove_duplicate_vertices()
-                cj_feature = {
-                    "type": "CityJSONFeature",
-                    "id": main_id,
-                    "CityObjects": cityjson.j['CityObjects'],
-                    "vertices": cityjson.j['vertices']
-                }
-                response=response+ ujson.dumps(cj_feature, ensure_ascii=False,
-                          escape_forward_slashes=True) + '\n'
 
-                cityjson = CityJSON()
-                main_id = row[0]
-            id = row[1]
-            object = row[2]
-            vertices = row[3]
-            add_cityobject(cityjson, id, object, vertices)
-        cj_feature = {
-            "type": "CityJSONFeature",
-            "id": main_id,
-            "CityObjects": cityjson.j['CityObjects'],
-            "vertices": cityjson.j['vertices']
-        }
-        response = response + ujson.dumps(cj_feature, ensure_ascii=False,
-                                          escape_forward_slashes=True) + '\n'
-    return response
+        for row in rows:
+            cj_feature = row[0]
+            yield ujson.dumps(cj_feature, ensure_ascii=False,
+                              escape_forward_slashes=True) + '\n'
+            if IF_FIRST:
+                break
+        if IF_FIRST:
+            break
 
 
 def query_item(file_name=None, schema_name=DEFAULT_SCHEMA, feature_id=None):
@@ -336,7 +309,7 @@ def query_col_info(file_name=None, schema_name=DEFAULT_SCHEMA):
     info['metadata_attributes'] = results[0][2]
     info['description'] = results[0][3]
     info['crs'] = results[0][1]
-    info['bbox'] = results[0][0]
+    info['bbox'] = re.findall(r"[-+]?\d*\.\d+|\d+", results[0][0])
 
     threaded_postgreSQL_pool.putconn(conn)
     return ujson.dumps(info, ensure_ascii=False,
@@ -357,7 +330,7 @@ def query_cols_info(schema_name=DEFAULT_SCHEMA):
     info = {}
     for result in cur.fetchall():
         info[result[1]] = {}
-        info[result[1]]['bbox'] = result[0]
+        info[result[1]]['bbox'] = re.findall(r"[-+]?\d*\.\d+|\d+", result[0])
         info[result[1]]['crs'] = result[2]
         info[result[1]]['description'] = result[3]
 

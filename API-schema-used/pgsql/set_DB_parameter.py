@@ -1,6 +1,5 @@
 import psycopg2
 import sys
-
 sys.path.append('../')
 from config import connect, DEFAULT_SCHEMA, DEFAULT_DB
 
@@ -50,32 +49,24 @@ def create_schema(db_name, schema_name):
         CREATE TABLE cityjson (
             id serial  PRIMARY KEY,
             name text,
-            referenceSystem int,
-            bbox numeric[],
-            datasetTitle text,
+            version text,
+            epsg int NOT NULL,
+            bbox box,
             metadata jsonb,
             meta_attr jsonb,
-            transform jsonb
+            transform jsonb,
+            UNIQUE (name, version)
         )
 
         CREATE TABLE cityobject (
             id serial PRIMARY KEY,
             obj_id text,
             type text,
-            bbox numeric[],
+            bbox box,
             attributes jsonb,
-            vertices jsonb,
-            object jsonb,
+            feature jsonb,
             cityjson_id int REFERENCES cityjson (id) on delete cascade on update cascade
         )
-
-        CREATE TABLE parent_children (
-            id serial PRIMARY KEY,
-            parent_id text,
-            child_id text,
-            cityjson_id int REFERENCES cityjson (id) on delete cascade on update cascade
-
-        )     
         """.format(schema_name)
 
     commands = [command_drop, command_create]
@@ -87,24 +78,21 @@ def create_schema(db_name, schema_name):
     conn.close()
     print("""The creation of schema "{}" in database "{}" is done""".format(schema_name, db_name))
 
-
-def add_indices(schema_name):
-    conn = connect()
-    cur = conn.cursor()
-
-    command_addindices = """
-        SET search_path to {}, public;
-        CREATE INDEX on cityobject USING GIN (bbox);
-        CREATE INDEX ON stream.cityobject(cityjson_id);
-         CREATE INDEX ON stream.cityobject(obj_id);
-
-
-         """.format(schema_name)
-    cur.execute(command_addindices)
-    conn.commit()
-    conn.close
+#
+# def add_indices(schema_name='addcolumns'):
+#     conn = connect()
+#     cur = conn.cursor()
+#
+#     command_addindices = """
+#         SET search_path to {}, public;
+#
+#         CREATE INDEX ON cityobject(bouwjaar);
+#
+#          """.format(schema_name)
+#     cur.execute(command_addindices)
+#     conn.commit()
+#     conn.close
 
 
-# create_database(DEFAULT_DB)
+# create_database('cityjson')
 create_schema(DEFAULT_DB, DEFAULT_SCHEMA)
-# add_indices(DEFAULT_SCHEMA)
