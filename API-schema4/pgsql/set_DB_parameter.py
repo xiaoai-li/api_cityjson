@@ -50,7 +50,7 @@ def create_schema(db_name, schema_name):
             id serial  PRIMARY KEY,
             name text,
             referenceSystem int,
-            bbox numeric[],
+            bbox geometry(POLYGON),
             datasetTitle text,
             metadata jsonb,
             meta_attr jsonb,

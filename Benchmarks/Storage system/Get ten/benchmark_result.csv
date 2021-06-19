@@ -1,0 +1,4 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1621265532156,86232,HTTP Request,200,OK,Thread Group 1-1,text,true,,12327,162,1,1,http://127.0.0.1:5000/collections/30gz2_02_2019_volledig/items/?limit=10,86229,0,0
+1621265618398,32899,HTTP Request,200,OK,Thread Group 1-1,text,true,,12327,162,1,1,http://127.0.0.1:5000/collections/30gz2_02_2019_volledig/items/?limit=10,32898,0,5
+1621265651298,34720,HTTP Request,200,OK,Thread Group 1-1,text,true,,12327,162,1,1,http://127.0.0.1:5000/collections/30gz2_02_2019_volledig/items/?limit=10,34718,0,1

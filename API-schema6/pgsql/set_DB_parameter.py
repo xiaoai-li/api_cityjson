@@ -63,18 +63,12 @@ def create_schema(db_name, schema_name):
             type text,
             bbox box,
             attributes jsonb,
+            parent_id text,
             vertices jsonb,
             object jsonb,
             cityjson_id int REFERENCES cityjson (id) on delete cascade on update cascade
         )
-        
-        CREATE TABLE parent_children (
-            id serial PRIMARY KEY,
-            parent_id text,
-            child_id text,
-            cityjson_id int REFERENCES cityjson (id) on delete cascade on update cascade
-
-        )     
+           
         """.format(schema_name)
 
     commands = [command_drop, command_create]
@@ -101,4 +95,5 @@ def add_indices(schema_name='addcolumns'):
     conn.commit()
     conn.close
 
+create_schema(DEFAULT_DB, DEFAULT_SCHEMA)
 

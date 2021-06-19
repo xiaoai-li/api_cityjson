@@ -5,8 +5,6 @@ SELECT
     nspname,
     pg_size_pretty ( sum(
         pg_relation_size (C .oid))
-    ) AS "total_size",     pg_size_pretty ( sum(
-        pg_table_size (C .oid))
     ) AS "total_size",
 	    pg_size_pretty ( sum(
         pg_total_relation_size (C .oid))

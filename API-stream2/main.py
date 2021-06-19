@@ -4,8 +4,8 @@ import os
 from cjio import cityjson
 from flask import Flask, request, Response
 
-from pgsql.query_PostgreSQL import query_items, query_item, query_col_info, query_cols_info, \
-    filter_col
+from pgsql.query_PostgreSQL import query_items, query_item, query_col_info, query_cols_info, filter_col_bbox, \
+    filter_col_attr, filter_cols_bbox
 
 app = Flask(__name__)
 PATHDATASETS = './datasets/'
@@ -61,8 +61,14 @@ def items(dataset):
     elif re_limit:
         items_queried = query_items(file_name=dataset, limit=re_limit)
         return Response(items_queried, mimetype='application/json')
-    elif re_bbox or re_attrs:  # stream
-        gen = filter_col(file_name=dataset, bbox=re_bbox, epsg=re_epsg, attrs=re_attrs)
+    elif re_bbox:  # stream
+        gen = filter_col_bbox(dataset_name=dataset, bbox=re_bbox, epsg=re_epsg)
+        if gen:
+            return Response(gen, mimetype='application/json')
+        else:
+            return JINVALIDIDENTIFIER, 404
+    elif re_attrs:
+        gen = filter_col_attr(dataset_name=dataset, attrs=re_attrs)
         if gen:
             return Response(gen, mimetype='application/json')
         else:

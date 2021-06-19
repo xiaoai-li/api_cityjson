@@ -1,0 +1,3 @@
+Label,# Samples,Average,Min,Max,Std. Dev.,Error %,Throughput,Received KB/sec,Sent KB/sec,Avg. Bytes
+VM Runnning ,10,4281,3891,7341,"1020,71","0,000%",",23355","37444,60","0,00","164174396,0"
+TOTAL,10,4281,3891,7341,"1020,71","0,000%",",23355","37444,60","0,00","164174396,0"

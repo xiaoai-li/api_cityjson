@@ -1,0 +1,3 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1621351253675,398777,HTTP Request,200,OK,Thread Group 1-1,text,true,,685557263,153,1,1,http://127.0.0.1:5000/collections/30gz2_02_2019_volledig/items/,209489,0,20
+1621351652488,55942,HTTP Request,Non HTTP response code: java.net.SocketException,Non HTTP response message: Socket closed,Thread Group 1-1,text,false,,2773,0,1,1,http://127.0.0.1:5000/collections/30gz2_02_2019_volledig/items/,0,0,1

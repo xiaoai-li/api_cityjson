@@ -33,8 +33,8 @@
           <stringProp name="HTTPSampler.domain"></stringProp>
           <stringProp name="HTTPSampler.port"></stringProp>
           <stringProp name="HTTPSampler.protocol"></stringProp>
-          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-          <stringProp name="HTTPSampler.path">http://127.0.0.1:5000/collections/Zurich_Building_LoD2_V10/items/?bbox=8.5,47.38,8.60916,47.41647&amp;epsg=4326</stringProp>
+          <stringProp name="HTTPSampler.contentEncoding">u</stringProp>
+          <stringProp name="HTTPSampler.path">http://127.0.0.1:5000/collections/37en2_volledig/items/?attrs=%7B%22type%22%3A%5B%22Building%22%5D%7D</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
@@ -79,7 +79,7 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">C:\Users\70664\Documents\github\api_cityjson\API-stream1\bench-results-attribute\cs-20000\First response time.csv</stringProp>
+          <stringProp name="filename">C:\Users\70664\Documents\github\api_cityjson\Benchmarks\Streaming method\bench-results-attr\nonstream\Benchmark.csv</stringProp>
         </ResultCollector>
         <hashTree/>
         <CacheManager guiclass="CacheManagerGui" testclass="CacheManager" testname="HTTP Cache Manager" enabled="true">

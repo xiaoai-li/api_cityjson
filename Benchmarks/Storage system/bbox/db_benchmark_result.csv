@@ -1,0 +1,4 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1621340228923,8280,HTTP Request,200,OK,Thread Group 1-1,text,true,,88048,185,1,1,"http://127.0.0.1:5000/collections/30dz2/items/?bbox=4.24930,52.05037,4.25040,52.05105&epsg=4326",8260,0,1
+1621340237203,8063,HTTP Request,200,OK,Thread Group 1-1,text,true,,88048,185,1,1,"http://127.0.0.1:5000/collections/30dz2/items/?bbox=4.24930,52.05037,4.25040,52.05105&epsg=4326",8044,0,0
+1621340245267,7976,HTTP Request,200,OK,Thread Group 1-1,text,true,,88048,185,1,1,"http://127.0.0.1:5000/collections/30dz2/items/?bbox=4.24930,52.05037,4.25040,52.05105&epsg=4326",7957,0,0

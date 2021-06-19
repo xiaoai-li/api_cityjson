@@ -57,13 +57,14 @@ def root():
 def collections():
     collections_info = query_cols_info()
     re_bbox = request.args.get('bbox', None)
+    re_epsg = request.args.get('epsg', None)
     re = request.args.get('f', None)
     if re == 'html' or re is None:
-        if re_bbox:
+        if re_bbox and re_epsg:
             re_bbox = re_bbox.split(',')
             if len(re_bbox) != 4:
                 return JINVALIDFORMAT
-            generator = stream_with_context(filter_cols_bbox(bbox=re_bbox, is_stream=True))
+            generator = stream_with_context(filter_cols_bbox(bbox=re_bbox, epsg=re_epsg,is_stream=True))
             return Response(stream_template('filtered_results.html', rows=generator, datasetname='filtered results'))
         else:
             return render_template("collections.html", datasets=collections_info)
@@ -72,7 +73,7 @@ def collections():
             re_bbox = re_bbox.split(',')
             if len(re_bbox) != 4:
                 return JINVALIDFORMAT
-            items_filtered = filter_cols_bbox(bbox=re_bbox, is_stream=False)
+            items_filtered = filter_cols_bbox(bbox=re_bbox, epsg=re_epsg,is_stream=False)
             return Response(json.dumps(items_filtered), mimetype='application/json')
         else:
             return Response(json.dumps(collections_info), mimetype='application/json')
@@ -127,7 +128,7 @@ def items(dataset):
                                    offset=0)
 
     elif re_f == 'json':
-        if re_limit and re_limit:  # pagination fro randomes features
+        if re_limit and re_offset:  # pagination fro randomes features
             items_queried = query_items(dataset_name=dataset, limit=re_limit, offset=re_offset)
             return render_template("items.html", datasetname=dataset, jcm=items_queried, limit=re_limit,
                                    offset=re_offset)

@@ -115,10 +115,11 @@
             <script>
                 var feature = {{feature | tojson}}
                 if (feature['type'] === 'CityJSON') {
-                    geoExtent = feature['metadata']['geographicalExtent'];
+                    meta_feature=feature
+                    geoExtent = meta_feature['metadata']['geographicalExtent'];
                     min_xyz = [geoExtent[0], geoExtent[1], geoExtent[2]]
                     max_xyz = [geoExtent[3], geoExtent[4], geoExtent[5]]
-                    transform = feature['transform'];
+                    transform = meta_feature['transform'];
 
                     var scale = transform.scale;
                     var translate = transform.translate
@@ -133,8 +134,7 @@
                         center[i] = (max_xyz[i]-min_xyz[i]) / 2
                     }
 
-                    console.log(center)
-                    s = 1.0 / Math.max(...center)
+                    s = 1.0 / Math.max(center[0],center[1])
                     transform_norm = {"scale": s, "translate": center}
 
                     var viewer = $("        <div class=\"column\" id=\"right\">\n" +
@@ -146,6 +146,7 @@
                     initDocument();
 
                     console.log(transform_norm)
+
                     initViewer(transform_norm);
 
                 } else

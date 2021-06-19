@@ -125,7 +125,7 @@
         let maxY = $('#maxY').val();
         let epsg = $('#epsg').val();
 
-        this.href = this.href + "/?bbox=" + minX + ',' + minY + ',' + maxX + ',' + maxY ;
+        this.href = this.href + "/?bbox=" + minX + ',' + minY + ',' + maxX + ',' + maxY + '&epsg=' + epsg;
     });
 </script>
 {% endblock %}

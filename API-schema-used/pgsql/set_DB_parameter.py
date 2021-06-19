@@ -50,7 +50,6 @@ def create_schema(db_name, schema_name):
             id serial  PRIMARY KEY,
             name text,
             version text,
-            epsg int NOT NULL,
             bbox box,
             metadata jsonb,
             meta_attr jsonb,

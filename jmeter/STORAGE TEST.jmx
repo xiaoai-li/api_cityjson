@@ -16,7 +16,7 @@
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">5</stringProp>
+          <stringProp name="LoopController.loops">3</stringProp>
         </elementProp>
         <stringProp name="ThreadGroup.num_threads">1</stringProp>
         <stringProp name="ThreadGroup.ramp_time"></stringProp>
@@ -34,7 +34,7 @@
           <stringProp name="HTTPSampler.port"></stringProp>
           <stringProp name="HTTPSampler.protocol"></stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-          <stringProp name="HTTPSampler.path">http://127.0.0.1:5000/collections/30gz1/items/?bbox=4.30595,52.04257,4.35814,52.08035&amp;epsg=4326</stringProp>
+          <stringProp name="HTTPSampler.path">http://127.0.0.1:5000/collections/30gz2_02_2019_volledig/items/</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
@@ -79,7 +79,7 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">C:\Users\70664\Documents\github\api_cityjson\API-storage-system\bench-results\file system\Bbox-filtering-with-pdok\benchmark_result.csv</stringProp>
+          <stringProp name="filename">C:\Users\70664\Documents\github\api_cityjson\Benchmarks\Storage system\attr\db_benchmark_result.csv</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>

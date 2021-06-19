@@ -6,7 +6,7 @@ import ujson
 from cjio import cityjson, subset
 from cjio.cityjson import CityJSON
 from pyproj import Proj, transform
-
+import json
 from config import PATHDATASETS
 
 TOPLEVEL = ('Building',
@@ -168,8 +168,9 @@ def filter_col(file_name=None, attrs=None, bbox=None, epsg=None):
 
     if attrs:
         cm = get_subset_attr(cm, attrs=attrs, exclude=False)
-    return ujson.dumps(cm.j, ensure_ascii=False,
-                       escape_forward_slashes=True)
+    cm.remove_duplicate_vertices()
+    cm.update_bbox()
+    return json.dumps(cm.j)
 
 
 # filename = '37en2_volledig'
@@ -182,21 +183,21 @@ def filter_col(file_name=None, attrs=None, bbox=None, epsg=None):
 # save_path = PATHDATASETS + filename + 'noLandUse.json'
 # cityjson.save(cm2, path=save_path)
 
-# def compress_originalzlib(cmpath, comprout, cm=None):
-#     if cm == None:
-#         cm_file = open(cmpath)
-#         cm = cityjson.reader(file=cm_file, ignore_duplicate_keys=True)
+def compress_originalzlib(cmpath, comprout, cm=None):
+    if cm == None:
+        cm_file = open(cmpath)
+        cm = cityjson.reader(file=cm_file, ignore_duplicate_keys=True)
+
+    compressed = zlib.compress(ujson.dumps(cm.j).encode())
+
+    cout = open(comprout, 'wb')
+    cout.write(compressed)
+    cout.close()
+
+    print("Compression finished")
+
 #
-#     compressed = zlib.compress(ujson.dumps(cm.j).encode())
-#
-#     cout = open(comprout, 'wb')
-#     cout.write(compressed)
-#     cout.close()
-#
-#     print("Compression finished")
-#
-#
-# filenames = ['Zurich_Building_LoD2_V10']
+# filenames = ['30gz2_02_2019_volledig']
 #
 # for filename in filenames:
 #     p_in = PATHDATASETS + filename + '.json'

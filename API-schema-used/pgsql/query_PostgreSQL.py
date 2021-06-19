@@ -5,7 +5,8 @@ import sys
 import numpy as np
 import pyproj
 from cjio.cityjson import CityJSON
-
+import json
+import time
 sys.path.append('../')
 
 from config import params_dic, DEFAULT_SCHEMA
@@ -25,7 +26,7 @@ TOPLEVEL = ('Building',
             'Tunnel',
             'WaterBody')
 
-CHUNK_SIZE = 500
+CHUNK_SIZE = 100
 
 
 def update_geom_indices(a, offset):
@@ -62,14 +63,18 @@ def query_cols_info(schema_name=DEFAULT_SCHEMA):
     col_info = {"id": None,
                 "title": None,
                 "description": None,
-                "extent_WGS84": [],
-                "metadata": None}
+                "referenceSystem": None,
+                "geographicalExtent": None,
+                "extent_WGS84": []}
     for result in cur.fetchall():
         col_info["id"] = result[0]
         col_info["title"] = result[0]
-        col_info["metadata"] = result[2]
         if "datasetTitle" in result[2]:
             col_info["description"] = result[2]["datasetTitle"]
+        if "referenceSystem" in result[2]:
+            col_info["referenceSystem"] = result[2]["referenceSystem"]
+        if "geographicalExtent" in result[2]:
+            col_info["geographicalExtent"] = result[2]["geographicalExtent"]
 
         extent = [float(x) for x in re.findall(r"[-+]?\d*\.\d+|\d+", result[1])]
         # ref_system = col_info["metadata"]['referenceSystem'].split("::")[-1]
@@ -101,13 +106,19 @@ def query_col_info(dataset_name=None, schema_name=DEFAULT_SCHEMA):
     col_info = {"id": None,
                 "title": None,
                 "description": None,
-                "extent_WGS84": [],
-                "metadata": None,
-                "attribute_information": {}}
+                "referenceSystem": None,
+                "geographicalExtent": None,
+                "extent_WGS84": []}
+
     result = cur.fetchall()[0]
     col_info["id"] = result[0]
     col_info["title"] = result[0]
-    col_info["metadata"] = result[2]
+    if "datasetTitle" in result[2]:
+        col_info["description"] = result[2]["datasetTitle"]
+    if "referenceSystem" in result[2]:
+        col_info["referenceSystem"] = result[2]["referenceSystem"]
+    if "geographicalExtent" in result[2]:
+        col_info["geographicalExtent"] = result[2]["geographicalExtent"]
 
     extent = [float(x) for x in re.findall(r"[-+]?\d*\.\d+|\d+", result[1])]
     # ref_system = col_info["metadata"]['referenceSystem'].split("::")[-1]
@@ -170,12 +181,6 @@ def filter_col_bbox(dataset_name=None, schema_name=DEFAULT_SCHEMA, bbox=None, ep
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()
 
-    if bbox and epsg:
-        query_bbox = """
-        bbox&& box '(({}, {}),({}, {}))'
-        """.format(*bbox)
-    else:
-        return None
 
     cm = CityJSON()
     cm.j['type'] = 'CityJSON'
@@ -200,25 +205,24 @@ def filter_col_bbox(dataset_name=None, schema_name=DEFAULT_SCHEMA, bbox=None, ep
 
     else:
         return None
+    if epsg and bbox:
+        min_xy = [bbox[0], bbox[1]]
+        max_xy = [bbox[2], bbox[3]]
 
-    # if epsg and bbox:
-    #     min_xy = [bbox[0], bbox[1]]
-    #     max_xy = [bbox[2], bbox[3]]
-    #
-    #     if epsg != 4326:
-    #         p_to = pyproj.CRS("epsg:4326")
-    #         p_from = pyproj.CRS("epsg:" + str(epsg))
-    #         transformer = pyproj.Transformer.from_crs(p_from, p_to, always_xy=True)
-    #         min_xy = transformer.transform(bbox[0], bbox[1])
-    #         max_xy = transformer.transform(bbox[2], bbox[3])
-    #
-    #     query_bbox = """
-    #     bbox&& box '(({}, {}),({}, {}))'
-    #     """.format(min_xy[0], min_xy[1], max_xy[0], max_xy[1])
-    #     cm.j["metadata"]["geographicalExtent"] = [*min_xy, 0, *max_xy, 10]
-    #
-    # else:
-    #     return None
+        if epsg != 4326:
+            p_to = pyproj.CRS("epsg:4326")
+            p_from = pyproj.CRS("epsg:" + str(epsg))
+            transformer = pyproj.Transformer.from_crs(p_from, p_to, always_xy=True)
+            min_xy = transformer.transform(bbox[0], bbox[1])
+            max_xy = transformer.transform(bbox[2], bbox[3])
+
+        query_bbox = """
+        bbox&& box '(({}, {}),({}, {}))'
+        """.format(min_xy[0], min_xy[1], max_xy[0], max_xy[1])
+
+    else:
+        return None
+
     query_features = """
         SET search_path to {}, public;
 
@@ -233,10 +237,11 @@ def filter_col_bbox(dataset_name=None, schema_name=DEFAULT_SCHEMA, bbox=None, ep
         for f in features:
             feature = f[0]
             add_feature(cm, feature)
+        print(len(cm.j["CityObjects"]))
         cm.remove_duplicate_vertices()
         cm.update_bbox()
         threaded_postgreSQL_pool.putconn(conn)
-        return cm.j
+        return json.dumps(cm.j)
 
     def generator():
         try:
@@ -302,8 +307,7 @@ def filter_col_attr(dataset_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, i
             if "range" in value:
                 min = value["range"][0]
                 max = value["range"][1]
-                query_attr += "AND (attributes->> '{}')::float >= {} AND (attributes->> '{}')::float <= {} ".format(
-                    attr, min, attr, max)
+                query_attr += "AND (attributes->> '{}')::float >= {} AND (attributes->> '{}')::float <= {} ".format(attr, min, attr, max)
 
     query_features = """
                          SET search_path to {}, public;
@@ -318,8 +322,11 @@ def filter_col_attr(dataset_name=None, schema_name=DEFAULT_SCHEMA, attrs=None, i
         for f in features:
             feature = f[0]
             add_feature(cm, feature)
+        print(len(cm.j["CityObjects"]))
+        cm.remove_duplicate_vertices()
+        cm.update_bbox()
         threaded_postgreSQL_pool.putconn(conn)
-        return cm.j
+        return json.dumps(cm.j)
 
     def generator():
         try:
@@ -344,51 +351,46 @@ def __dumps_col(cur):
         for row in rows:
             cj_feature = row[0]
             yield cj_feature
+        # time.sleep(1)
 
 
 def query_item(dataset_name=None, schema_name=DEFAULT_SCHEMA, feature_id=None):
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()  # Open a cursor to perform database operations
 
-    cm = CityJSON()
-    cm.j['type'] = 'CityJSON'
-    query_cm_info = """
-                SET search_path to {}, public;
-
-                SELECT id, version, metadata, transform
-                FROM cityjson
-                WHERE name=%s
-                """.format(schema_name)
-
-    cur.execute(query_cm_info, [dataset_name])
-    cm_info = cur.fetchall()
-    cm_id = cm_info[0][0]
-    version = cm_info[0][1]
-    cm.j['version'] = version
-    cm.j["metadata"] = cm_info[0][2]
-    cm.j["transform"] = cm_info[0][3]
     query_feature = """
         SET search_path to {}, public;
 
         SELECT feature
-        FROM cityobject 
-        WHERE cityjson_id=%s and obj_id=%s
+        FROM cityobject as a join cityjson as b on a.cityjson_id=b.id 
+        WHERE name=%s and obj_id=%s
         """.format(schema_name)
 
-    cur.execute(query_feature, [cm_id, feature_id])
+    cur.execute(query_feature, [dataset_name, feature_id])
     feature = cur.fetchall()[0][0]
 
     return feature
 
 
-def filter_cols_bbox(schema_name=DEFAULT_SCHEMA, bbox=None, is_stream=True):
+def filter_cols_bbox(schema_name=DEFAULT_SCHEMA, bbox=None, epsg=None, is_stream=True):
     conn = threaded_postgreSQL_pool.getconn()
     cur = conn.cursor()
 
-    if bbox:
+    if epsg and bbox:
+        min_xy = [bbox[0], bbox[1]]
+        max_xy = [bbox[2], bbox[3]]
+
+        if epsg != 4326:
+            p_to = pyproj.CRS("epsg:4326")
+            p_from = pyproj.CRS("epsg:" + str(epsg))
+            transformer = pyproj.Transformer.from_crs(p_from, p_to, always_xy=True)
+            min_xy = transformer.transform(bbox[0], bbox[1])
+            max_xy = transformer.transform(bbox[2], bbox[3])
+
         query_bbox = """
         bbox&& box '(({}, {}),({}, {}))'
-        """.format(*bbox)
+        """.format(min_xy[0], min_xy[1], max_xy[0], max_xy[1])
+
     else:
         return None
 
@@ -407,6 +409,8 @@ def filter_cols_bbox(schema_name=DEFAULT_SCHEMA, bbox=None, is_stream=True):
 
     version = cms_info[0][1]
     epsg = int(cms_info[0][2]['referenceSystem'].split("::")[-1])
+
+
     for cm_info in cms_info:
         cm_epsg = int(cm_info[2]['referenceSystem'].split("::")[-1])
         cm_version = cm_info[1]
@@ -438,12 +442,12 @@ def filter_cols_bbox(schema_name=DEFAULT_SCHEMA, bbox=None, is_stream=True):
     # -- put transform
     cm.j["transform"] = {}
 
-    if epsg != 4326:
-        p_to = pyproj.CRS("epsg:" + str(epsg))
-        p_from = pyproj.CRS("epsg:4326")
-        transformer = pyproj.Transformer.from_crs(p_from, p_to, always_xy=True)
-        min_xy = transformer.transform(bbox[0], bbox[1])
-        max_xy = transformer.transform(bbox[2], bbox[3])
+
+    p_to = pyproj.CRS("epsg:" + str(epsg))
+    p_from = pyproj.CRS("epsg:4326")
+    transformer = pyproj.Transformer.from_crs(p_from, p_to, always_xy=True)
+    min_xy = transformer.transform(bbox[0], bbox[1])
+    max_xy = transformer.transform(bbox[2], bbox[3])
 
     ss = 0.001
 
@@ -453,7 +457,7 @@ def filter_cols_bbox(schema_name=DEFAULT_SCHEMA, bbox=None, is_stream=True):
     }
     cm.j["transform"] = new_transform
 
-    cm.j["metadata"]["geographicalExtent"] = [*min_xy, 0, *max_xy, 10 / ss]
+    cm.j["metadata"]["geographicalExtent"] = [*min_xy, 0, *max_xy, 10]
     cj_info = cm.j
 
     if not is_stream:

@@ -2,7 +2,7 @@ import sys
 
 import psycopg2
 
-PATHDATASETS = '../../data/'
+PATHDATASETS = '../../data_pdok/'
 
 DEFAULT_DB = 'benchmarking'
 DEFAULT_SCHEMA = 'second'

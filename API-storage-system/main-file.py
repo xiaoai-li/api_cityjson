@@ -19,8 +19,8 @@ def root():
 
 @app.route('/collections/<dataset>/items/', methods=['GET'])  # -- html/json/bbox/limit/offset
 def items(dataset):
-    re_limit = request.args.get('limit', None)
-    re_offset = request.args.get('offset', None)
+    re_limit = request.args.get('limit', 9999999)
+    re_offset = request.args.get('offset', 0)
     re_bbox = request.args.get('bbox', None)
     re_epsg = request.args.get('epsg', None)
     re_attrs = request.args.get('attrs', None)
@@ -33,25 +33,16 @@ def items(dataset):
     if re_attrs is not None:
         re_attrs = json.loads(re_attrs)
 
-    if re_limit is not None:
-        re_limit = int(re_limit)
-
-    if re_offset is not None:
-        re_offset = int(re_offset)
-
-    if re_limit and re_offset:  # pagination
+    if re_bbox and re_epsg:
+        items_filtered = filter_col(file_name=dataset, bbox=re_bbox, epsg=re_epsg)
+        return Response(items_filtered, mimetype='application/json')
+    elif re_attrs:
+        items_filtered = filter_col(file_name=dataset, attrs=re_attrs)
+        return Response(items_filtered, mimetype='application/json')
+    elif re_limit != 9999999:
         items_queried = query_items(file_name=dataset, limit=re_limit, offset=re_offset)
-        return Response(items_queried, mimetype='application/json')
-    elif re_limit:
-        items_queried = query_items(file_name=dataset, limit=re_limit)
-        return Response(items_queried, mimetype='application/json')
-    elif re_bbox or re_attrs:  # stream
-        gen = filter_col(file_name=dataset, bbox=re_bbox, epsg=re_epsg, attrs=re_attrs)
-        if gen:
-            return Response(gen, mimetype='application/json')
-        else:
-            return JINVALIDIDENTIFIER, 404
-    else:  # send all items
+        return Response(json.dumps(items_queried), mimetype='application/json')
+    else:
         import time
         # t1 = time.time()
         # data = query_items(file_name=dataset)
@@ -66,7 +57,8 @@ def items(dataset):
         byte = file.read()
         return byte
 
-        # return Response(all_items, mimetype='application/json')
+        # return Response(compressed, mimetype='application/json')
+
 
 
 @app.route('/collections/<dataset>/items/<featureID>/', methods=['GET'])  # -- html/json

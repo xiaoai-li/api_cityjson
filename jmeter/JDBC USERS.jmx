@@ -19,7 +19,7 @@
           <stringProp name="LoopController.loops">10</stringProp>
         </elementProp>
         <stringProp name="ThreadGroup.num_threads">1</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
         <boolProp name="ThreadGroup.scheduler">false</boolProp>
         <stringProp name="ThreadGroup.duration"></stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
@@ -29,12 +29,22 @@
         <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="VM Runnning " enabled="true">
           <stringProp name="dataSource">myDB</stringProp>
           <stringProp name="queryType">Select Statement</stringProp>
-          <stringProp name="query">Select child_id
-from sixth.parent_children
-WHERE parent_id IN (SELECT obj_id
-FROM sixth.cityobject 
-WHERE cityjson_id=100 
-AND type= &apos;Building&apos;)</stringProp>
+          <stringProp name="query">-- original query
+WITH origin AS (
+SELECT obj_id as main_id, obj_id,object,vertices
+FROM sixth.cityobject
+WHERE cityjson_id=1 AND type In (&apos;Building&apos;) 
+limit 30000),
+
+-- get children of original query
+children AS(
+SELECT parent_id as main_id, obj_id,object,vertices
+FROM  sixth.cityobject
+WHERE parent_id IN (SELECT obj_id FROM origin))
+
+(SELECT main_id, obj_id, object,vertices from origin)
+UNION ALL (SELECT * from children )
+ORDER by main_id</stringProp>
           <stringProp name="queryArguments"></stringProp>
           <stringProp name="queryArgumentsTypes"></stringProp>
           <stringProp name="variableNames"></stringProp>
@@ -97,7 +107,7 @@ AND type= &apos;Building&apos;)</stringProp>
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">C:\Users\70664\Documents\github\api_cityjson\API-schema5\benchmark_result_table.csv</stringProp>
+          <stringProp name="filename">C:\Users\70664\Documents\github\api_cityjson\Benchmarks\DB schema\parent-child\Case 1\db_benchmark_result.csv</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>
